@@ -1,7 +1,9 @@
+name: dev-sopt-korail
+
 services:
   mysql:
     image: mysql:8.0
-    container_name: sopt-mysql
+    container_name: sopt-korail-mysql
     ports:
       - "3306:3306"
     environment:
