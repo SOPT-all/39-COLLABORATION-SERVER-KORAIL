@@ -1,12 +1,18 @@
 package org.sopt.korail.global.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.sopt.korail.global.code.BaseCode;
 import org.sopt.korail.global.code.BaseErrorCode;
 import org.sopt.korail.global.code.BaseSuccessCode;
 import org.sopt.korail.global.code.CommonSuccessCode;
 import org.springframework.http.ResponseEntity;
 
-public record ApiResponse<T>(boolean isSuccess, String code, String message, T data) {
+public record ApiResponse<T>(
+        @JsonProperty("isSuccess") boolean isSuccess,
+        String code,
+        String message,
+        T data
+) {
     // 성공
     public static <T> ResponseEntity<ApiResponse<T>> success(BaseSuccessCode successCode, T data) {
         return ResponseEntity
