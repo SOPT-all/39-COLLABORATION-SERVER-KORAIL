@@ -5,6 +5,7 @@ import org.sopt.korail.global.code.BaseErrorCode;
 import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.response.ApiResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -33,7 +34,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             log.warn("[스프링 MVC 예외] status={}, message={}", statusCode.value(), e.getMessage());
         }
 
-        ApiResponse<Void> response = ApiResponse.fail("COMMON" + statusCode.value(), e.getMessage());
+        ApiResponse<Void> response = CommonErrorCode.from(statusCode)
+                .<ApiResponse<Void>>map(ApiResponse::fail)
+                .orElseGet(() -> ApiResponse.fail("COMMON" + statusCode.value(), reasonPhrase(statusCode)));
         return ResponseEntity.status(statusCode).headers(headers).body(response);
     }
 
@@ -48,5 +51,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
                 .body(ApiResponse.fail(errorCode));
+    }
+
+    private String reasonPhrase(HttpStatusCode statusCode) {
+        HttpStatus status = HttpStatus.resolve(statusCode.value());
+        return status != null ? status.getReasonPhrase() : "Error";
     }
 }
