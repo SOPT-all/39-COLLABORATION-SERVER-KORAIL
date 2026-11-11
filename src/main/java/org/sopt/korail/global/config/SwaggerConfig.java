@@ -5,8 +5,12 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.examples.Example;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.ObjectSchema;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -79,7 +83,7 @@ public class SwaggerConfig {
         mediaType.addExamples(errorCode.getCode(), new Example().value(ApiResponse.fail(errorCode)));
     }
 
-    // 성공 상태 코드로 변경
+    // 성공 상태 코드로 변경 + ApiResponse 구조로 감싸기
     private void applySuccessCode(Operation operation, BaseSuccessCode successCode) {
         ApiResponses responses = operation.getResponses();
         var response = responses.remove("200");
@@ -87,7 +91,32 @@ public class SwaggerConfig {
             return;
         }
 
+        wrapSchema(response, successCode);
+
         String statusCode = String.valueOf(successCode.getHttpStatus().value());
         responses.addApiResponse(statusCode, response.description(successCode.getMessage()));
+    }
+
+    // 컨트롤러가 반환한 DTO를 result 자리에 넣고 ApiResponse 구조로 감싸기
+    private void wrapSchema(io.swagger.v3.oas.models.responses.ApiResponse response, BaseSuccessCode successCode) {
+        if (response.getContent() == null) {
+            return;
+        }
+
+        for (MediaType mediaType : response.getContent().values()) {
+            Schema<?> dataSchema = mediaType.getSchema();
+
+            // addProperty()가 raw Schema를 반환해서 <?>로 받음
+            Schema<?> wrapped = new ObjectSchema()
+                    .addProperty("isSuccess", new BooleanSchema().example(true))
+                    .addProperty("code", new StringSchema().example(successCode.getCode()))
+                    .addProperty("message", new StringSchema().example(successCode.getMessage()));
+
+            if (dataSchema != null) {
+                wrapped.addProperty("result", dataSchema);
+            }
+
+            mediaType.setSchema(wrapped);
+        }
     }
 }
