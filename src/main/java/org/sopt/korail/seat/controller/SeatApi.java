@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.seat.dto.response.CoachListResponse;
+import org.sopt.korail.seat.dto.response.SeatLayoutResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,5 +23,15 @@ public interface SeatApi {
             @PathVariable Long scheduleId,
             @Parameter(description = "좌석 등급 (기본값 STANDARD)", example = "STANDARD")
             @RequestParam(defaultValue = "STANDARD") SeatClass seatClass
+    );
+
+    @Operation(summary = "좌석 배치 조회", description = "선택한 호차의 좌석 배치와 좌석별 예약 가능 여부, 잔여 좌석 수를 조회합니다.")
+    @SecurityRequirements
+    @GetMapping("/{coachId}/seats")
+    SeatLayoutResponse getSeats(
+            @Parameter(description = "스케줄 ID", example = "1")
+            @PathVariable Long scheduleId,
+            @Parameter(description = "호차 ID", example = "1")
+            @PathVariable Long coachId
     );
 }
