@@ -20,7 +20,7 @@ public interface SeatApi {
     CoachListResponse getCoaches(
             @Parameter(description = "스케줄 ID", example = "1")
             @PathVariable Long scheduleId,
-            @Parameter(description = "좌석 등급", example = "STANDARD")
-            @RequestParam SeatClass seatClass
+            @Parameter(description = "좌석 등급 (기본값 STANDARD)", example = "STANDARD")
+            @RequestParam(defaultValue = "STANDARD") SeatClass seatClass
     );
 }
