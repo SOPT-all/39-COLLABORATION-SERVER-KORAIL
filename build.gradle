@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '4.0.8'
     id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -27,6 +28,9 @@ dependencies {
     // MySQL 드라이버
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // 테스트용 인메모리 DB
+    testRuntimeOnly 'com.h2database:h2'
+
     // Spring Data JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
@@ -35,6 +39,29 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+jacoco {
+    toolVersion = "0.8.13"
+}
+
 test {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        html.required = true
+        xml.required = true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    '**/Main*',
+                    '**/global/config/**',
+                    '**/global/swagger/**',
+                    '**/dto/**'
+            ])
+        }))
+    }
 }
