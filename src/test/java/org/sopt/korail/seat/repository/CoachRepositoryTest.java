@@ -77,8 +77,8 @@ class CoachRepositoryTest {
 
                 CoachSeatSummary result = findSingle(schedule);
 
-                assertThat(result.totalSeats()).isEqualTo(2);
-                assertThat(result.occupiedSeats()).isEqualTo(1);
+                assertThat(result.totalSeatCount()).isEqualTo(2);
+                assertThat(result.occupiedSeatCount()).isEqualTo(1);
             }
 
             @Test
@@ -89,7 +89,7 @@ class CoachRepositoryTest {
 
                 CoachSeatSummary result = findSingle(schedule);
 
-                assertThat(result.occupiedSeats()).isZero();
+                assertThat(result.occupiedSeatCount()).isZero();
             }
 
             @Test
@@ -100,7 +100,7 @@ class CoachRepositoryTest {
 
                 CoachSeatSummary result = findSingle(schedule);
 
-                assertThat(result.occupiedSeats()).isZero();
+                assertThat(result.occupiedSeatCount()).isZero();
             }
 
             @Test
@@ -112,7 +112,7 @@ class CoachRepositoryTest {
 
                 CoachSeatSummary result = findSingle(schedule);
 
-                assertThat(result.occupiedSeats()).isZero();
+                assertThat(result.occupiedSeatCount()).isZero();
             }
         }
 
@@ -141,8 +141,8 @@ class CoachRepositoryTest {
             void 좌석없는호차_0반환() {
                 CoachSeatSummary result = findSingle(schedule);
 
-                assertThat(result.totalSeats()).isZero();
-                assertThat(result.occupiedSeats()).isZero();
+                assertThat(result.totalSeatCount()).isZero();
+                assertThat(result.occupiedSeatCount()).isZero();
             }
         }
     }

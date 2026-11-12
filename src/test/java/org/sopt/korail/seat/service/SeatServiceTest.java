@@ -62,8 +62,8 @@ class SeatServiceTest {
                 assertThat(result.coaches()).containsExactly(CoachResponse.builder()
                         .coachId(10L)
                         .coachNumber(1)
-                        .remainingSeats(17)
-                        .totalSeats(48)
+                        .remainingSeatCount(17)
+                        .totalSeatCount(48)
                         .reservable(true)
                         .build());
             }
@@ -80,7 +80,7 @@ class SeatServiceTest {
 
                 assertThat(result.coaches()).singleElement()
                         .satisfies(coach -> {
-                            assertThat(coach.remainingSeats()).isZero();
+                            assertThat(coach.remainingSeatCount()).isZero();
                             assertThat(coach.reservable()).isFalse();
                         });
             }

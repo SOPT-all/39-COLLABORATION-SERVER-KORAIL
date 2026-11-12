@@ -12,10 +12,10 @@ public record CoachResponse(
         int coachNumber,
 
         @Schema(description = "잔여 좌석 수", example = "17")
-        int remainingSeats,
+        int remainingSeatCount,
 
         @Schema(description = "전체 좌석 수", example = "48")
-        int totalSeats,
+        int totalSeatCount,
 
         @Schema(description = "좌석 선택 가능 여부", example = "true")
         boolean reservable

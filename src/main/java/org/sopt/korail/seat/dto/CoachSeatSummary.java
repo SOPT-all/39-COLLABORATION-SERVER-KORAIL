@@ -4,7 +4,7 @@ package org.sopt.korail.seat.dto;
 public record CoachSeatSummary(
         Long coachId,
         int coachNumber,
-        long totalSeats,
-        long occupiedSeats
+        long totalSeatCount,
+        long occupiedSeatCount
 ) {
 }

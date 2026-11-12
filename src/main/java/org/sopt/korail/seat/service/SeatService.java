@@ -36,15 +36,15 @@ public class SeatService {
     }
 
     private CoachResponse toCoachResponse(CoachSeatSummary summary) {
-        int totalSeats = (int) summary.totalSeats();
-        int remainingSeats = totalSeats - (int) summary.occupiedSeats();
+        int totalSeatCount = (int) summary.totalSeatCount();
+        int remainingSeatCount = totalSeatCount - (int) summary.occupiedSeatCount();
 
         return CoachResponse.builder()
                 .coachId(summary.coachId())
                 .coachNumber(summary.coachNumber())
-                .remainingSeats(remainingSeats)
-                .totalSeats(totalSeats)
-                .reservable(remainingSeats > 0)
+                .remainingSeatCount(remainingSeatCount)
+                .totalSeatCount(totalSeatCount)
+                .reservable(remainingSeatCount > 0)
                 .build();
     }
 }

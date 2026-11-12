@@ -51,8 +51,8 @@ class SeatControllerTest {
                 CoachResponse coach = CoachResponse.builder()
                         .coachId(10L)
                         .coachNumber(1)
-                        .remainingSeats(17)
-                        .totalSeats(48)
+                        .remainingSeatCount(17)
+                        .totalSeatCount(48)
                         .reservable(true)
                         .build();
                 given(seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD))
@@ -67,8 +67,8 @@ class SeatControllerTest {
                         .andExpect(jsonPath("$.result.coaches.length()").value(1))
                         .andExpect(jsonPath("$.result.coaches[0].coachId").value(10L))
                         .andExpect(jsonPath("$.result.coaches[0].coachNumber").value(1))
-                        .andExpect(jsonPath("$.result.coaches[0].remainingSeats").value(17))
-                        .andExpect(jsonPath("$.result.coaches[0].totalSeats").value(48))
+                        .andExpect(jsonPath("$.result.coaches[0].remainingSeatCount").value(17))
+                        .andExpect(jsonPath("$.result.coaches[0].totalSeatCount").value(48))
                         .andExpect(jsonPath("$.result.coaches[0].reservable").value(true));
             }
 
