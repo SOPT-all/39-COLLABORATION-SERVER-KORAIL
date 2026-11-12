@@ -8,7 +8,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum SeatSuccessCode implements BaseSuccessCode {
-    COACH_LIST_OK(HttpStatus.OK, "SEAT2001", "호차 목록 조회에 성공했습니다.");
+    COACH_LIST_OK(HttpStatus.OK, "SEAT2001", "호차 목록 조회에 성공했습니다."),
+    SEAT_LAYOUT_OK(HttpStatus.OK, "SEAT2002", "좌석 배치 조회에 성공했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
