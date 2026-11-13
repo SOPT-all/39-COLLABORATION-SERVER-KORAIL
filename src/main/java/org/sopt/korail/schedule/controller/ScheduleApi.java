@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.schedule.dto.response.ScheduleDetailResponse;
 import org.sopt.korail.schedule.dto.response.ScheduleListResponse;
@@ -26,7 +28,7 @@ public interface ScheduleApi {
             @Parameter(description = "출발일 (yyyy-MM-dd), 미입력 시 전체", example = "2026-12-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
             @Parameter(description = "인원수 (1~9, 기본값 1)", example = "1")
-            @RequestParam(defaultValue = "1") int passengerCount,
+            @RequestParam(defaultValue = "1") @Min(1) @Max(9) int passengerCount,
             @Parameter(description = "열차 종류 필터. 여러 개는 키를 반복해 보냅니다 (trainTypes=KTX&trainTypes=ITX). 미입력 시 전체", example = "KTX")
             @RequestParam(required = false) List<TrainType> trainTypes
     );
@@ -38,6 +40,6 @@ public interface ScheduleApi {
             @Parameter(description = "스케줄 ID", example = "1")
             @PathVariable Long scheduleId,
             @Parameter(description = "인원수 (1~9, 기본값 1)", example = "1")
-            @RequestParam(defaultValue = "1") int passengerCount
+            @RequestParam(defaultValue = "1") @Min(1) @Max(9) int passengerCount
     );
 }
