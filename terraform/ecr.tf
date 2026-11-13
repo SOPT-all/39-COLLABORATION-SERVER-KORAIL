@@ -1,7 +1,10 @@
 locals {
-  project       = "sopt-korail"
-  github_repo   = "SOPT-all/39-COLLABORATION-SERVER-KORAIL"
-  deploy_branch = "main"
+  project          = "sopt-korail"
+  github_owner     = "SOPT-all"
+  github_owner_id  = 182959893
+  github_repo      = "39-COLLABORATION-SERVER-KORAIL"
+  github_repo_id   = 1443825172
+  deploy_branch    = "main"
   ecr_repositories = ["${local.project}-api"]
 }
 
