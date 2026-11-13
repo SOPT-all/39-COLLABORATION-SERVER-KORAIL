@@ -1,5 +1,8 @@
 package org.sopt.korail.reservation.domain;
 
 public enum ReservationStatus {
-    PENDING
+    PENDING,
+    PAID,
+    CANCELED,
+    EXPIRED
 }
