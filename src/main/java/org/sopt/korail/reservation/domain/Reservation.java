@@ -61,4 +61,19 @@ public class Reservation extends BaseTimeEntity {
         this.totalPrice = totalPrice;
         this.expiresAt = expiresAt;
     }
+
+    // 회원의 예약인지 확인한다.
+    public boolean isOwnedBy(Long memberId) {
+        return member.getId().equals(memberId);
+    }
+
+    // 결제 기한이 지난 결제 대기 예약인지 확인한다.
+    public boolean isExpired(LocalDateTime now) {
+        return status == ReservationStatus.PENDING && !expiresAt.isAfter(now);
+    }
+
+    // 결제 기한이 지난 결제 대기 예약은 EXPIRED로 본다.
+    public ReservationStatus getStatusAt(LocalDateTime now) {
+        return isExpired(now) ? ReservationStatus.EXPIRED : status;
+    }
 }

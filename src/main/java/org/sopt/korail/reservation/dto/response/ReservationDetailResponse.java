@@ -117,7 +117,7 @@ public record ReservationDetailResponse(
                     seat.getCoach().getCoachNumber(),
                     seat.getCoach().getSeatClass(),
                     seat.getId(),
-                    seat.getSeatRow() + seat.getSeatCol(),
+                    seat.getSeatNumber(),
                     seat.getDirection(),
                     ticket.getPassengerType(),
                     ticket.getPrice()
