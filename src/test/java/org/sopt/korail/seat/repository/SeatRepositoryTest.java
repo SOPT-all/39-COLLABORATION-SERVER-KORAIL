@@ -55,11 +55,48 @@ class SeatRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("열차의 좌석 등급별 좌석 조회(findAllByTrainIdAndSeatClass)")
+    class FindAllByTrainIdAndSeatClass {
+
+        @Test
+        @DisplayName("해당 열차, 해당 등급의 좌석만 호차, 행, 열 순으로 반환한다")
+        void 열차등급좌석_호차행열순정렬() {
+            Train train = persistTrain("KTX001");
+            Train otherTrain = persistTrain("KTX002");
+            Coach coach2 = persistCoach(train, 2);
+            Coach coach1 = persistCoach(train, 1);
+            Coach firstClassCoach = persistCoach(train, 3, SeatClass.FIRST);
+            persistSeat(coach2, 1, "A");
+            persistSeat(coach1, 2, "A");
+            persistSeat(coach1, 1, "B");
+            persistSeat(coach1, 1, "A");
+            persistSeat(firstClassCoach, 1, "A");
+            persistSeat(persistCoach(otherTrain, 1), 1, "A");
+            em.flush();
+            em.clear();
+
+            List<Seat> result = seatRepository.findAllByTrainIdAndSeatClass(train.getId(), SeatClass.STANDARD);
+
+            assertThat(result)
+                    .extracting(seat -> seat.getCoach().getCoachNumber() + "-" + seat.getSeatRow() + seat.getSeatCol())
+                    .containsExactly("1-1A", "1-1B", "1-2A", "2-1A");
+        }
+    }
+
+    private Train persistTrain(String trainNumber) {
+        return em.persist(Train.builder().trainNumber(trainNumber).trainType(TrainType.KTX).build());
+    }
+
     private Coach persistCoach(Train train, int coachNumber) {
+        return persistCoach(train, coachNumber, SeatClass.STANDARD);
+    }
+
+    private Coach persistCoach(Train train, int coachNumber, SeatClass seatClass) {
         return em.persist(Coach.builder()
                 .train(train)
                 .coachNumber(coachNumber)
-                .seatClass(SeatClass.STANDARD)
+                .seatClass(seatClass)
                 .build());
     }
 
