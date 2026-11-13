@@ -19,10 +19,13 @@
 | Service | Mockito 단위 테스트 | 필수 |
 | Controller | `@WebMvcTest` 슬라이스 테스트 | 필수 |
 | 엔티티 도메인 메서드 (상태 변경 등) | 순수 단위 테스트 | 로직이 있을 때만 |
-| Repository 커스텀 쿼리 | `@DataJpaTest` | 사람에게 확인 후 작성 |
+| Repository `@Query` (JPQL) | `@DataJpaTest` | 필수 |
+| `{Domain}QueryRepository` (QueryDSL 동적 쿼리) | `@DataJpaTest` (선택 조건별) | 필수 |
+| Repository `get~OrThrow` default 메서드 | `@DataJpaTest` (성공/실패) | 필수 |
 
 테스트하지 않는 것:
 - getter, 빌더, DTO, `global/config`, `global/swagger`
+- 메서드 이름 쿼리 (`findByIdAndTrain` 등)
 - 로직 없이 Repository를 그대로 호출만 하는 코드
 
 ## 2. 파일 위치와 이름
@@ -223,7 +226,51 @@ mockMvc.perform(get("/api/v1/reservations/{id}", RESERVATION_ID))
 - 생성 API는 성공 코드가 `COMMON201`이면 `status().isCreated()`와 `$.code`를 함께 검증합니다.
 - `@Valid` 실패 케이스는 **제약조건마다** 1개 작성합니다. (한 필드에 `@NotNull`, `@Positive`가 함께 있으면 각각 1개)
 
-## 8. 픽스처
+## 8. Repository 쿼리 테스트
+
+직접 작성한 쿼리(`@Query` JPQL, QueryDSL)는 서비스 테스트에서 목으로 대체되어 검증되지 않으므로, `@DataJpaTest`로 H2에 데이터를 넣고 실제로 조회해서 검증합니다.
+
+```java
+@DataJpaTest
+@Import(JpaConfig.class)
+@DisplayName("CoachRepository 테스트")
+class CoachRepositoryTest {
+
+    @Autowired
+    private TestEntityManager em;
+
+    @Autowired
+    private CoachRepository coachRepository;
+}
+```
+
+### 공통
+- 테스트 데이터는 `TestEntityManager.persist`로 넣습니다.
+- 테스트 데이터에는 조건에 맞는 데이터와 **맞지 않는 데이터를 함께 넣어 두고**, 맞는 것만 조회되는지 확인합니다.
+- 범위 조건(날짜 등)은 경계값을 검증합니다. (예: 출발일 00:00은 포함, 다음 날 00:00은 제외)
+- 정렬이 있으면 결과 순서를 검증합니다. (`containsExactly`)
+- 집계 쿼리는 집계에 포함되는 경우와 빠지는 경우(상태·만료 조건 등)를 각각 검증합니다.
+
+### QueryRepository (QueryDSL)
+
+```java
+@DataJpaTest
+@Import({JpaConfig.class, QuerydslConfig.class, ScheduleQueryRepository.class})
+@DisplayName("ScheduleQueryRepository 테스트")
+class ScheduleQueryRepositoryTest {
+
+    @Autowired
+    private TestEntityManager em;
+
+    @Autowired
+    private ScheduleQueryRepository scheduleQueryRepository;
+}
+```
+
+- `@DataJpaTest`는 `JpaRepository` 인터페이스만 빈으로 등록합니다. `{Domain}QueryRepository`와 `JPAQueryFactory`를 만드는 `QuerydslConfig`는 `@Import`로 직접 등록합니다.
+- 선택 조건마다 **값이 있을 때(조건 적용)** 와 **값이 없을 때(`null`·빈 리스트 → 조건 제외)** 케이스를 1개씩 작성합니다. 모든 조건 조합을 테스트하지 않습니다.
+
+## 9. 픽스처
 
 - 테스트 데이터는 `support/fixture/{Domain}Fixture`에 **상수 + static 팩토리 메서드**로 모읍니다.
 - 테스트 클래스에서는 `import static ...ReservationFixture.*;`로 가져다 씁니다.
@@ -273,7 +320,7 @@ public final class StationFixture {
 - 엔티티 빌더에는 `id`가 없으므로 `ReflectionTestUtils.setField(entity, "id", id)`로 설정합니다.
 - 픽스처를 만들려고 main 코드에 `public` 생성자, 빌더, `id` 파라미터, setter를 추가하지 않습니다.
 
-## 9. 하지 말 것
+## 10. 하지 말 것
 
 - 단위 테스트에 `@SpringBootTest` 사용
 - 단위 테스트에서 실제 DB, 외부 API에 의존
@@ -282,7 +329,7 @@ public final class StationFixture {
 - 테스트를 통과시키려고 main 코드의 접근 제어자나 구조를 바꾸는 것
 - 실패하는 테스트를 `@Disabled`로 숨기는 것 (필요하면 사유를 사람에게 먼저 알림)
 
-## 10. 작성 후 확인
+## 11. 작성 후 확인
 
 1. `./gradlew test`가 통과하는지 확인합니다.
 2. 성공/실패 케이스가 모두 있는지 확인합니다. **서로 다른 비즈니스 분기·검증 규칙마다** 실패 케이스가 1개 이상 있어야 합니다.
