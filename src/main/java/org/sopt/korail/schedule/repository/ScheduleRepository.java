@@ -15,7 +15,8 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            select s from Schedule s
+            select s
+            from Schedule s
             join fetch s.train
             join fetch s.departureStation
             join fetch s.arrivalStation
