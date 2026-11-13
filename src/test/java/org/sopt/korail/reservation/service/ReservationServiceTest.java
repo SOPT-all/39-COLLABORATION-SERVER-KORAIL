@@ -186,7 +186,7 @@ class ReservationServiceTest {
             @DisplayName("특실을 요청하면 RESERVATION4004를 던진다")
             void 특실요청_RESERVATION4004를_던진다() {
                 CreateReservationRequest request = new CreateReservationRequest(
-                        SCHEDULE_ID, SeatClass.PREMIUM, 1, null);
+                        SCHEDULE_ID, SeatClass.FIRST, 1, null);
 
                 assertThatThrownBy(() -> reservationService.createReservation(request))
                         .isInstanceOf(GeneralException.class)
@@ -262,7 +262,7 @@ class ReservationServiceTest {
             @DisplayName("요청한 좌석 등급과 다르면 RESERVATION4003을 던진다")
             void 다른좌석등급_RESERVATION4003을_던진다() {
                 var schedule = schedule();
-                Coach premiumCoach = coach(1L, schedule.getTrain(), 1, SeatClass.PREMIUM);
+                Coach premiumCoach = coach(1L, schedule.getTrain(), 1, SeatClass.FIRST);
                 Seat seat = seat(101L, premiumCoach, 1, "A");
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(101L));

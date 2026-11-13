@@ -1,6 +1,8 @@
 package org.sopt.korail.schedule.repository;
 
 import jakarta.persistence.LockModeType;
+import org.sopt.korail.global.exception.GeneralException;
+import org.sopt.korail.schedule.code.ScheduleErrorCode;
 import org.sopt.korail.schedule.domain.Schedule;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -20,4 +22,9 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             where s.id = :id
             """)
     Optional<Schedule> findByIdForUpdate(@Param("id") Long id);
+
+    default Schedule getByIdOrThrow(Long id) {
+        return findById(id)
+                .orElseThrow(() -> new GeneralException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+    }
 }
