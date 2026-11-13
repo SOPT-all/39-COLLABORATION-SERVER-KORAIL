@@ -13,8 +13,7 @@ public record CreateReservationRequest(
         @NotNull
         Long scheduleId,
 
-        @Schema(description = "좌석 등급 (현재 STANDARD만 예약 가능)", example = "STANDARD")
-        @NotNull
+        @Schema(description = "좌석 등급 (생략하면 STANDARD)", example = "STANDARD", defaultValue = "STANDARD")
         SeatClass seatClass,
 
         @Schema(description = "인원 수 (1~9)", example = "2")
@@ -24,4 +23,9 @@ public record CreateReservationRequest(
         @Schema(description = "선택한 좌석 ID 목록 (생략하면 자동 배정, 입력하면 인원 수와 같아야 함)", example = "[101, 102]")
         List<@NotNull Long> seatIds
 ) {
+    public CreateReservationRequest {
+        if (seatClass == null) {
+            seatClass = SeatClass.STANDARD;
+        }
+    }
 }
