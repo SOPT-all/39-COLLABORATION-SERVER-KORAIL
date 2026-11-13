@@ -5,11 +5,11 @@ import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.reservation.repository.TicketRepository;
 import org.sopt.korail.schedule.domain.Schedule;
+import org.sopt.korail.schedule.domain.Train;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
 import org.sopt.korail.seat.code.SeatErrorCode;
 import org.sopt.korail.seat.domain.Coach;
 import org.sopt.korail.seat.domain.Seat;
-import org.sopt.korail.seat.dto.CoachSeatSummary;
 import org.sopt.korail.seat.dto.response.CoachListResponse;
 import org.sopt.korail.seat.dto.response.CoachResponse;
 import org.sopt.korail.seat.dto.response.SeatLayoutResponse;
@@ -23,7 +23,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,13 +39,20 @@ public class SeatService {
 
     public CoachListResponse getCoaches(Long scheduleId, SeatClass seatClass) {
         Schedule schedule = scheduleRepository.getByIdOrThrow(scheduleId);
+        Train train = schedule.getTrain();
 
-        List<CoachResponse> coaches = coachRepository.findCoachSeatSummaries(schedule, seatClass, LocalDateTime.now(clock))
+        List<Coach> coaches = coachRepository.findCoachesByTrainAndSeatClass(train, seatClass);
+        Map<Long, List<Seat>> seatsByCoachId = seatRepository.findSeatsByTrainAndSeatClass(train, seatClass)
                 .stream()
-                .map(this::toCoachResponse)
+                .collect(Collectors.groupingBy(seat -> seat.getCoach().getId()));
+        Set<Long> occupiedSeatIds = findOccupiedSeatIds(scheduleId);
+
+        List<CoachResponse> coachResponses = coaches.stream()
+                .map(coach -> toCoachResponse(
+                        coach, seatsByCoachId.getOrDefault(coach.getId(), List.of()), occupiedSeatIds))
                 .toList();
 
-        return CoachListResponse.of(scheduleId, seatClass, coaches);
+        return CoachListResponse.of(scheduleId, seatClass, coachResponses);
     }
 
     public SeatLayoutResponse getSeats(Long scheduleId, Long coachId) {
@@ -51,9 +60,8 @@ public class SeatService {
         Coach coach = coachRepository.findByIdAndTrain(coachId, schedule.getTrain())
                 .orElseThrow(() -> new GeneralException(SeatErrorCode.COACH_NOT_FOUND));
 
-        List<Seat> seats = seatRepository.findSeats(coach);
-        Set<Long> occupiedSeatIds = new HashSet<>(
-                ticketRepository.findOccupiedSeatIds(schedule, coach, LocalDateTime.now(clock)));
+        List<Seat> seats = seatRepository.findSeatsByCoach(coach);
+        Set<Long> occupiedSeatIds = findOccupiedSeatIds(scheduleId);
 
         List<SeatResponse> seatResponses = seats.stream()
                 .map(seat -> SeatResponse.of(seat, !occupiedSeatIds.contains(seat.getId())))
@@ -64,21 +72,30 @@ public class SeatService {
                 .coachId(coach.getId())
                 .coachNumber(coach.getCoachNumber())
                 .seatClass(coach.getSeatClass())
-                .remainingSeatCount(seats.size() - occupiedSeatIds.size())
+                .remainingSeatCount(countRemainingSeats(seats, occupiedSeatIds))
                 .totalSeatCount(seats.size())
                 .seats(seatResponses)
                 .build();
     }
 
-    private CoachResponse toCoachResponse(CoachSeatSummary summary) {
-        int totalSeatCount = (int) summary.totalSeatCount();
-        int remainingSeatCount = totalSeatCount - (int) summary.occupiedSeatCount();
+    private Set<Long> findOccupiedSeatIds(Long scheduleId) {
+        return new HashSet<>(ticketRepository.findOccupiedSeatIds(scheduleId, LocalDateTime.now(clock)));
+    }
+
+    private int countRemainingSeats(List<Seat> seats, Set<Long> occupiedSeatIds) {
+        return (int) seats.stream()
+                .filter(seat -> !occupiedSeatIds.contains(seat.getId()))
+                .count();
+    }
+
+    private CoachResponse toCoachResponse(Coach coach, List<Seat> seats, Set<Long> occupiedSeatIds) {
+        int remainingSeatCount = countRemainingSeats(seats, occupiedSeatIds);
 
         return CoachResponse.builder()
-                .coachId(summary.coachId())
-                .coachNumber(summary.coachNumber())
+                .coachId(coach.getId())
+                .coachNumber(coach.getCoachNumber())
                 .remainingSeatCount(remainingSeatCount)
-                .totalSeatCount(totalSeatCount)
+                .totalSeatCount(seats.size())
                 .reservable(remainingSeatCount > 0)
                 .build();
     }
