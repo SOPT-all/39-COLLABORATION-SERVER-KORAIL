@@ -17,6 +17,7 @@ import org.sopt.korail.schedule.repository.ScheduleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -37,12 +38,13 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final ScheduleQueryRepository scheduleQueryRepository;
     private final FareRepository fareRepository;
+    private final Clock clock;
 
     public ScheduleListResponse getSchedules(LocalDate departureDate, int passengerCount, List<TrainType> trainTypes) {
         validatePassengerCount(passengerCount);
 
         List<Schedule> schedules = scheduleQueryRepository.findSchedules(
-                DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, departureDate, trainTypes, LocalDateTime.now());
+                DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, departureDate, trainTypes, LocalDateTime.now(clock));
         Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType();
 
         List<ScheduleResponse> responses = schedules.stream()

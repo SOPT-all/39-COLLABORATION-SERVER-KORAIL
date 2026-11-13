@@ -1,10 +1,10 @@
 package org.sopt.korail.schedule.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.sopt.korail.global.code.CommonErrorCode;
@@ -21,6 +21,7 @@ import org.sopt.korail.schedule.repository.FareRepository;
 import org.sopt.korail.schedule.repository.ScheduleQueryRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.sopt.korail.global.config.TimeConfig.KST;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -44,11 +46,19 @@ class ScheduleServiceTest {
     private static final String ARRIVAL = "부산";
     private static final LocalDate DATE = LocalDate.of(2026, 12, 1);
 
-    @InjectMocks private ScheduleService scheduleService;
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 30, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(NOW.atZone(KST).toInstant(), KST);
+
+    private ScheduleService scheduleService;
 
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ScheduleQueryRepository scheduleQueryRepository;
     @Mock private FareRepository fareRepository;
+
+    @BeforeEach
+    void setUp() {
+        scheduleService = new ScheduleService(scheduleRepository, scheduleQueryRepository, fareRepository, FIXED_CLOCK);
+    }
 
     private List<Fare> fares() {
         return List.of(
@@ -69,7 +79,7 @@ class ScheduleServiceTest {
             @DisplayName("열차별 운임을 인원수만큼 곱하고 일반실, 특실 순으로 반환한다")
             void 조회성공_운임인원수반영() {
                 Schedule schedule = schedule();
-                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class)))
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW)))
                         .willReturn(List.of(schedule));
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
@@ -89,7 +99,7 @@ class ScheduleServiceTest {
             @Test
             @DisplayName("조건에 맞는 열차가 없으면 빈 목록을 반환한다")
             void 조회성공_결과없음_빈목록() {
-                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class))).willReturn(List.of());
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW))).willReturn(List.of());
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
                 ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
@@ -100,7 +110,7 @@ class ScheduleServiceTest {
             @Test
             @DisplayName("해당 열차 종류의 운임이 없으면 운임 목록이 비어 있다")
             void 조회성공_운임없음_빈운임() {
-                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class)))
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW)))
                         .willReturn(List.of(schedule()));
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
 
