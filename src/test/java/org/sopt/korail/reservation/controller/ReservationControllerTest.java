@@ -3,9 +3,11 @@ package org.sopt.korail.reservation.controller;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.exception.GeneralException;
+import org.sopt.korail.member.code.MemberErrorCode;
 import org.sopt.korail.reservation.code.ReservationErrorCode;
 import org.sopt.korail.reservation.code.ReservationSuccessCode;
 import org.sopt.korail.reservation.domain.ReservationStatus;
@@ -24,8 +26,12 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.sopt.korail.support.fixture.MemberFixture.MEMBER_ID;
 import static org.sopt.korail.support.fixture.ReservationFixture.RESERVATION_ID;
 import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -36,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ReservationController.class)
 @DisplayName("ReservationController 테스트")
 class ReservationControllerTest {
+
+    private static final String MEMBER_ID_HEADER = "Member-Id";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -54,16 +62,36 @@ class ReservationControllerTest {
             void 유효한요청_201을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, List.of(101L, 102L));
-                given(reservationService.createReservation(any(CreateReservationRequest.class)))
+                given(reservationService.createReservation(eq(MEMBER_ID), any(CreateReservationRequest.class)))
                         .willReturn(new CreateReservationResponse(RESERVATION_ID));
 
                 mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.isSuccess").value(true))
                         .andExpect(jsonPath("$.code").value(ReservationSuccessCode.RESERVATION_CREATED.getCode()))
                         .andExpect(jsonPath("$.result.reservationId").value(RESERVATION_ID));
+            }
+
+            @Test
+            @DisplayName("좌석 등급을 생략하면 STANDARD로 예약을 요청한다")
+            void 좌석등급생략_STANDARD로_요청한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, null, 1, null);
+                given(reservationService.createReservation(eq(MEMBER_ID), any(CreateReservationRequest.class)))
+                        .willReturn(new CreateReservationResponse(RESERVATION_ID));
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isCreated());
+
+                ArgumentCaptor<CreateReservationRequest> captor = ArgumentCaptor.forClass(CreateReservationRequest.class);
+                verify(reservationService).createReservation(eq(MEMBER_ID), captor.capture());
+                assertThat(captor.getValue().seatClass()).isEqualTo(SeatClass.STANDARD);
             }
         }
 
@@ -72,12 +100,44 @@ class ReservationControllerTest {
         class Failure {
 
             @Test
+            @DisplayName("회원 ID 헤더가 없으면 BAD_REQUEST를 반환한다")
+            void 생성시_회원헤더없음_400을_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, SeatClass.STANDARD, 1, null);
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("존재하지 않는 회원이면 MEMBER_NOT_FOUND를 반환한다")
+            void 회원없음_404를_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, SeatClass.STANDARD, 1, null);
+                given(reservationService.createReservation(eq(MEMBER_ID), any(CreateReservationRequest.class)))
+                        .willThrow(new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isNotFound())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(MemberErrorCode.MEMBER_NOT_FOUND.getCode()));
+            }
+
+            @Test
             @DisplayName("인원 수가 1보다 작으면 BAD_REQUEST를 반환한다")
             void 잘못된인원수_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 0, null);
 
                 mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isBadRequest())
@@ -92,6 +152,7 @@ class ReservationControllerTest {
                         SCHEDULE_ID, SeatClass.STANDARD, 10, null);
 
                 mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isBadRequest())
@@ -106,20 +167,7 @@ class ReservationControllerTest {
                         null, SeatClass.STANDARD, 1, null);
 
                 mockMvc.perform(post("/api/v1/reservations")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.isSuccess").value(false))
-                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
-            }
-
-            @Test
-            @DisplayName("좌석 등급이 없으면 BAD_REQUEST를 반환한다")
-            void 좌석등급없음_400을_반환한다() throws Exception {
-                CreateReservationRequest request = new CreateReservationRequest(
-                        SCHEDULE_ID, null, 1, null);
-
-                mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isBadRequest())
@@ -134,6 +182,7 @@ class ReservationControllerTest {
                         SCHEDULE_ID, SeatClass.STANDARD, 1, Collections.singletonList(null));
 
                 mockMvc.perform(post("/api/v1/reservations")
+                                .header(MEMBER_ID_HEADER, MEMBER_ID)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isBadRequest())
@@ -164,9 +213,10 @@ class ReservationControllerTest {
                         null,
                         List.of()
                 );
-                given(reservationService.getReservation(RESERVATION_ID)).willReturn(response);
+                given(reservationService.getReservation(MEMBER_ID, RESERVATION_ID)).willReturn(response);
 
-                mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID))
+                mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID)
+                                .header(MEMBER_ID_HEADER, MEMBER_ID))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.isSuccess").value(true))
                         .andExpect(jsonPath("$.code").value(ReservationSuccessCode.RESERVATION_DETAIL_OK.getCode()))
@@ -183,13 +233,23 @@ class ReservationControllerTest {
             @Test
             @DisplayName("예약이 없으면 RESERVATION_NOT_FOUND를 반환한다")
             void 없는예약_404를_반환한다() throws Exception {
-                given(reservationService.getReservation(RESERVATION_ID))
+                given(reservationService.getReservation(MEMBER_ID, RESERVATION_ID))
                         .willThrow(new GeneralException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
-                mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID))
+                mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID)
+                                .header(MEMBER_ID_HEADER, MEMBER_ID))
                         .andExpect(status().isNotFound())
                         .andExpect(jsonPath("$.isSuccess").value(false))
                         .andExpect(jsonPath("$.code").value(ReservationErrorCode.RESERVATION_NOT_FOUND.getCode()));
+            }
+
+            @Test
+            @DisplayName("회원 ID 헤더가 없으면 BAD_REQUEST를 반환한다")
+            void 조회시_회원헤더없음_400을_반환한다() throws Exception {
+                mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
             }
         }
     }

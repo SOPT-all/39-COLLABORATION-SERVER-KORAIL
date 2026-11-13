@@ -31,8 +31,8 @@ class SeatRepositoryTest {
     private SeatRepository seatRepository;
 
     @Nested
-    @DisplayName("호차 좌석 조회(findSeats)")
-    class FindSeats {
+    @DisplayName("호차 좌석 조회(findSeatsByCoach)")
+    class FindSeatsByCoach {
 
         @Test
         @DisplayName("해당 호차의 좌석만 행 오름차순, 열 오름차순으로 반환한다")
@@ -47,7 +47,7 @@ class SeatRepositoryTest {
             em.flush();
             em.clear();
 
-            List<Seat> result = seatRepository.findSeats(coach);
+            List<Seat> result = seatRepository.findSeatsByCoach(coach);
 
             assertThat(result)
                     .extracting(seat -> seat.getSeatRow() + seat.getSeatCol())
@@ -56,8 +56,8 @@ class SeatRepositoryTest {
     }
 
     @Nested
-    @DisplayName("열차의 좌석 등급별 좌석 조회(findAllByTrainIdAndSeatClass)")
-    class FindAllByTrainIdAndSeatClass {
+    @DisplayName("열차의 좌석 등급별 좌석 조회(findSeatsByTrainAndSeatClass)")
+    class FindSeatsByTrainAndSeatClass {
 
         @Test
         @DisplayName("해당 열차, 해당 등급의 좌석만 호차, 행, 열 순으로 반환한다")
@@ -76,7 +76,7 @@ class SeatRepositoryTest {
             em.flush();
             em.clear();
 
-            List<Seat> result = seatRepository.findAllByTrainIdAndSeatClass(train.getId(), SeatClass.STANDARD);
+            List<Seat> result = seatRepository.findSeatsByTrainAndSeatClass(train, SeatClass.STANDARD);
 
             assertThat(result)
                     .extracting(seat -> seat.getCoach().getCoachNumber() + "-" + seat.getSeatRow() + seat.getSeatCol())
