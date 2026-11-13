@@ -2,6 +2,7 @@ package org.sopt.korail.seat.repository;
 
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.schedule.domain.Schedule;
+import org.sopt.korail.schedule.domain.Train;
 import org.sopt.korail.seat.domain.Coach;
 import org.sopt.korail.seat.dto.CoachSeatSummary;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,8 +11,12 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface CoachRepository extends JpaRepository<Coach, Long> {
+    // 열차에 속한 호차만 조회
+    Optional<Coach> findByIdAndTrain(Long id, Train train);
+
     // 호차별 전체 좌석 수와 점유 좌석 수
     // TODO: 해민 티켓 예약 구현 이후 만료 조건 확인
     @Query("""

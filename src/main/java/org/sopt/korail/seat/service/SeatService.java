@@ -3,18 +3,26 @@ package org.sopt.korail.seat.service;
 import lombok.RequiredArgsConstructor;
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.exception.GeneralException;
-import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.reservation.repository.TicketRepository;
 import org.sopt.korail.schedule.domain.Schedule;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
+import org.sopt.korail.seat.code.SeatErrorCode;
+import org.sopt.korail.seat.domain.Coach;
+import org.sopt.korail.seat.domain.Seat;
 import org.sopt.korail.seat.dto.CoachSeatSummary;
 import org.sopt.korail.seat.dto.response.CoachListResponse;
 import org.sopt.korail.seat.dto.response.CoachResponse;
+import org.sopt.korail.seat.dto.response.SeatLayoutResponse;
+import org.sopt.korail.seat.dto.response.SeatResponse;
 import org.sopt.korail.seat.repository.CoachRepository;
+import org.sopt.korail.seat.repository.SeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -22,10 +30,11 @@ import java.util.List;
 public class SeatService {
     private final ScheduleRepository scheduleRepository;
     private final CoachRepository coachRepository;
+    private final SeatRepository seatRepository;
+    private final TicketRepository ticketRepository;
 
     public CoachListResponse getCoaches(Long scheduleId, SeatClass seatClass) {
-        Schedule schedule = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new GeneralException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+        Schedule schedule = scheduleRepository.getByIdOrThrow(scheduleId);
 
         List<CoachResponse> coaches = coachRepository.findCoachSeatSummaries(schedule, seatClass, LocalDateTime.now())
                 .stream()
@@ -33,6 +42,30 @@ public class SeatService {
                 .toList();
 
         return CoachListResponse.of(scheduleId, seatClass, coaches);
+    }
+
+    public SeatLayoutResponse getSeats(Long scheduleId, Long coachId) {
+        Schedule schedule = scheduleRepository.getByIdOrThrow(scheduleId);
+        Coach coach = coachRepository.findByIdAndTrain(coachId, schedule.getTrain())
+                .orElseThrow(() -> new GeneralException(SeatErrorCode.COACH_NOT_FOUND));
+
+        List<Seat> seats = seatRepository.findSeats(coach);
+        Set<Long> occupiedSeatIds = new HashSet<>(
+                ticketRepository.findOccupiedSeatIds(schedule, coach, LocalDateTime.now()));
+
+        List<SeatResponse> seatResponses = seats.stream()
+                .map(seat -> SeatResponse.of(seat, !occupiedSeatIds.contains(seat.getId())))
+                .toList();
+
+        return SeatLayoutResponse.builder()
+                .scheduleId(scheduleId)
+                .coachId(coach.getId())
+                .coachNumber(coach.getCoachNumber())
+                .seatClass(coach.getSeatClass())
+                .remainingSeatCount(seats.size() - occupiedSeatIds.size())
+                .totalSeatCount(seats.size())
+                .seats(seatResponses)
+                .build();
     }
 
     private CoachResponse toCoachResponse(CoachSeatSummary summary) {

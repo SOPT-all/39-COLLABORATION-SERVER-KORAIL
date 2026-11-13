@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 public final class ScheduleFixture {
     public static final Long SCHEDULE_ID = 1L;
+    public static final Long TRAIN_ID = 1L;
     public static final LocalDateTime DEPARTURE_AT = LocalDateTime.of(2026, 12, 1, 9, 0);
 
     private ScheduleFixture() {
@@ -38,10 +39,16 @@ public final class ScheduleFixture {
                 .build();
     }
 
-    private static Train train() {
-        return Train.builder()
-                .trainNumber("KTX001")
+    public static Train train() {
+        return train(TRAIN_ID);
+    }
+
+    public static Train train(Long id) {
+        Train train = Train.builder()
+                .trainNumber("KTX" + id)
                 .trainType(TrainType.KTX)
                 .build();
+        ReflectionTestUtils.setField(train, "id", id);
+        return train;
     }
 }
