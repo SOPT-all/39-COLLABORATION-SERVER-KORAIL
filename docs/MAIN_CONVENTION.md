@@ -119,8 +119,36 @@ default Schedule getByIdOrThrow(Long id) {
 
 ## 5. Repository
 
-- 복잡한 조건·정렬·집계는 `@Query` + 텍스트 블록(`"""`) JPQL로 씁니다.
+- 조건이 고정된 복잡한 조건·정렬·집계는 `@Query` + 텍스트 블록(`"""`) JPQL로 씁니다.
+- 값에 따라 조건이 빠지는 동적 쿼리(선택 필터 등)는 QueryDSL로 씁니다.
 - 엔티티가 아닌 결과(집계 등)는 `new` 생성자 표현식으로 `dto` 패키지의 record에 담습니다.
+
+### QueryDSL
+- `{Domain}QueryRepository` 클래스(`@Repository`)로 만들어 `repository` 패키지에 둡니다. (`ScheduleQueryRepository`)
+- `JPAQueryFactory`를 생성자로 주입받고, 서비스는 `{Domain}Repository`와 `{Domain}QueryRepository`를 각각 주입받습니다.
+- 선택 조건은 `BooleanExpression`을 반환하는 private 메서드로 분리하고, 값이 없으면 `null`을 반환해 `where`에서 빠지게 합니다.
+
+```java
+@Repository
+@RequiredArgsConstructor
+public class ScheduleQueryRepository {
+    private final JPAQueryFactory queryFactory;
+
+    public List<Schedule> findSchedules(..., List<TrainType> trainTypes) {
+        return queryFactory
+                .selectFrom(schedule)
+                .where(..., trainTypeIn(trainTypes))
+                .fetch();
+    }
+
+    private BooleanExpression trainTypeIn(List<TrainType> trainTypes) {
+        if (trainTypes == null || trainTypes.isEmpty()) {
+            return null;
+        }
+        return train.trainType.in(trainTypes);
+    }
+}
+```
 
 ## 6. Entity
 
