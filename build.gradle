@@ -43,6 +43,9 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:6.0.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // ArchUnit (아키텍처 규칙 테스트)
+    testImplementation 'com.tngtech.archunit:archunit:1.5.1'
 }
 
 jacoco {

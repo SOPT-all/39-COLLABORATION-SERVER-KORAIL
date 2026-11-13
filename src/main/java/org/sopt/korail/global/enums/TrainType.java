@@ -1,7 +1,15 @@
 package org.sopt.korail.global.enums;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public enum TrainType {
-    KTX,
-    ITX,
-    MUGUNGHWA
+    KTX("KTX"),
+    ITX("ITX-새마을"),
+    ITX_MAEUM("ITX-마음"),
+    MUGUNGHWA("무궁화");
+
+    private final String displayName;
 }
