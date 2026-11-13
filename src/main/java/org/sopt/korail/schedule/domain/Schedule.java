@@ -42,18 +42,23 @@ public class Schedule {
     @Column(nullable = false)
     private LocalDateTime arrivalAt;
 
+    @Column(length = 50)
+    private String remark;
+
     @Builder
     private Schedule(
             Station departureStation,
             Station arrivalStation,
             Train train,
             LocalDateTime departureAt,
-            LocalDateTime arrivalAt
+            LocalDateTime arrivalAt,
+            String remark
     ) {
         this.departureStation = departureStation;
         this.arrivalStation = arrivalStation;
         this.train = train;
         this.departureAt = departureAt;
         this.arrivalAt = arrivalAt;
+        this.remark = remark;
     }
 }
