@@ -1,10 +1,10 @@
 package org.sopt.korail.seat.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.sopt.korail.global.enums.SeatClass;
@@ -25,6 +25,7 @@ import org.sopt.korail.seat.dto.response.SeatResponse;
 import org.sopt.korail.seat.repository.CoachRepository;
 import org.sopt.korail.seat.repository.SeatRepository;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.sopt.korail.global.config.TimeConfig.KST;
 import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.sopt.korail.support.fixture.ScheduleFixture.schedule;
 import static org.sopt.korail.support.fixture.SeatFixture.COACH_ID;
@@ -45,12 +47,20 @@ import static org.sopt.korail.support.fixture.SeatFixture.seat;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SeatService 단위 테스트")
 class SeatServiceTest {
-    @InjectMocks private SeatService seatService;
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 30, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(NOW.atZone(KST).toInstant(), KST);
+
+    private SeatService seatService;
 
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private CoachRepository coachRepository;
     @Mock private SeatRepository seatRepository;
     @Mock private TicketRepository ticketRepository;
+
+    @BeforeEach
+    void setUp() {
+        seatService = new SeatService(scheduleRepository, coachRepository, seatRepository, ticketRepository, FIXED_CLOCK);
+    }
 
     @Nested
     @DisplayName("좌석 배치 조회(getSeats)")
@@ -70,7 +80,7 @@ class SeatServiceTest {
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
                 given(coachRepository.findByIdAndTrain(COACH_ID, schedule.getTrain())).willReturn(Optional.of(coach));
                 given(seatRepository.findSeats(coach)).willReturn(List.of(occupied, empty));
-                given(ticketRepository.findOccupiedSeatIds(eq(schedule), eq(coach), any(LocalDateTime.class)))
+                given(ticketRepository.findOccupiedSeatIds(eq(schedule), eq(coach), eq(NOW)))
                         .willReturn(List.of(101L));
 
                 SeatLayoutResponse result = seatService.getSeats(SCHEDULE_ID, COACH_ID);
@@ -133,7 +143,7 @@ class SeatServiceTest {
             void 집계결과_잔여석계산() {
                 Schedule schedule = schedule();
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), any(LocalDateTime.class)))
+                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), eq(NOW)))
                         .willReturn(List.of(new CoachSeatSummary(10L, 1, 48, 31)));
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD);
@@ -154,7 +164,7 @@ class SeatServiceTest {
             void 잔여석없음_선택불가() {
                 Schedule schedule = schedule();
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), any(LocalDateTime.class)))
+                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), eq(NOW)))
                         .willReturn(List.of(new CoachSeatSummary(10L, 3, 48, 48)));
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD);
@@ -171,7 +181,7 @@ class SeatServiceTest {
             void 호차없음_빈목록반환() {
                 Schedule schedule = schedule();
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.FIRST), any(LocalDateTime.class)))
+                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.FIRST), eq(NOW)))
                         .willReturn(List.of());
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.FIRST);
