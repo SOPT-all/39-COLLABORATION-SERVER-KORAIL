@@ -1,6 +1,8 @@
 package org.sopt.korail.reservation.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.sopt.korail.member.code.ApiMemberErrors;
+import org.sopt.korail.member.code.MemberErrorCode;
 import org.sopt.korail.reservation.code.ApiReservationErrors;
 import org.sopt.korail.reservation.code.ApiReservationSuccess;
 import org.sopt.korail.reservation.code.ReservationErrorCode;
@@ -24,23 +26,23 @@ public class ReservationController implements ReservationApi {
     @Override
     @ApiReservationSuccess(ReservationSuccessCode.RESERVATION_CREATED)
     @ApiReservationErrors({
-            ReservationErrorCode.UNSUPPORTED_SEAT_CLASS,
             ReservationErrorCode.SEAT_COUNT_MISMATCH,
             ReservationErrorCode.SEAT_NOT_IN_SCHEDULE,
             ReservationErrorCode.SEAT_CLASS_MISMATCH,
             ReservationErrorCode.SEAT_ALREADY_RESERVED,
             ReservationErrorCode.INSUFFICIENT_SEATS
     })
-    @ApiScheduleErrors({ScheduleErrorCode.SCHEDULE_NOT_FOUND})
+    @ApiScheduleErrors({ScheduleErrorCode.SCHEDULE_NOT_FOUND, ScheduleErrorCode.FARE_NOT_FOUND})
     @ApiSeatErrors({SeatErrorCode.SEAT_NOT_FOUND})
-    public CreateReservationResponse createReservation(CreateReservationRequest request) {
-        return reservationService.createReservation(request);
+    @ApiMemberErrors({MemberErrorCode.MEMBER_NOT_FOUND})
+    public CreateReservationResponse createReservation(Long memberId, CreateReservationRequest request) {
+        return reservationService.createReservation(memberId, request);
     }
 
     @Override
     @ApiReservationSuccess(ReservationSuccessCode.RESERVATION_DETAIL_OK)
     @ApiReservationErrors({ReservationErrorCode.RESERVATION_NOT_FOUND})
-    public ReservationDetailResponse getReservation(Long reservationId) {
-        return reservationService.getReservation(reservationId);
+    public ReservationDetailResponse getReservation(Long memberId, Long reservationId) {
+        return reservationService.getReservation(memberId, reservationId);
     }
 }

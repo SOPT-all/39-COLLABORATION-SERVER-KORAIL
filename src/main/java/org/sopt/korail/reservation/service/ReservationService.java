@@ -1,10 +1,10 @@
 package org.sopt.korail.reservation.service;
 
 import lombok.RequiredArgsConstructor;
-import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.enums.PassengerType;
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.exception.GeneralException;
+import org.sopt.korail.member.code.MemberErrorCode;
 import org.sopt.korail.member.domain.Member;
 import org.sopt.korail.member.repository.MemberRepository;
 import org.sopt.korail.reservation.code.ReservationErrorCode;
@@ -27,6 +27,7 @@ import org.sopt.korail.seat.repository.SeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ReservationService {
 
-    private static final long FIXED_MEMBER_ID = 1L;
     private static final int PAYMENT_TIMEOUT_MINUTES = 10;
 
     private final ReservationRepository reservationRepository;
@@ -51,14 +51,15 @@ public class ReservationService {
     private final FareRepository fareRepository;
     private final SeatRepository seatRepository;
     private final MemberRepository memberRepository;
+    private final Clock clock;
 
     @Transactional
-    public CreateReservationResponse createReservation(CreateReservationRequest request) {
-        validateSupportedSeatClass(request.seatClass());
+    public CreateReservationResponse createReservation(Long memberId, CreateReservationRequest request) {
+        Member member = findMember(memberId);
 
         // 같은 일정의 좌석 점유 확인과 티켓 생성을 직렬화해 동시 중복 예약을 막는다.
         Schedule schedule = findScheduleForUpdate(request.scheduleId());
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         Set<Long> occupiedSeatIds = new HashSet<>(
                 ticketRepository.findOccupiedSeatIds(schedule.getId(), now)
         );
@@ -69,14 +70,8 @@ public class ReservationService {
 
         Fare fare = findAdultFare(schedule, request.seatClass());
 
-        int totalPrice;
-        try {
-            totalPrice = Math.multiplyExact(fare.getPrice(), request.passengerCount());
-        } catch (ArithmeticException e) {
-            throw new GeneralException(CommonErrorCode.INTERNAL_SERVER_ERROR);
-        }
+        int totalPrice = fare.getPrice() * request.passengerCount();
 
-        Member member = memberRepository.getReferenceById(FIXED_MEMBER_ID);
         Reservation reservation = reservationRepository.save(Reservation.builder()
                 .schedule(schedule)
                 .member(member)
@@ -98,8 +93,8 @@ public class ReservationService {
         return CreateReservationResponse.of(reservation);
     }
 
-    public ReservationDetailResponse getReservation(Long reservationId) {
-        Reservation reservation = findReservation(reservationId);
+    public ReservationDetailResponse getReservation(Long memberId, Long reservationId) {
+        Reservation reservation = findReservation(memberId, reservationId);
         List<ReservationDetailResponse.TicketResponse> tickets =
                 ticketRepository.findActiveTicketsByReservationId(reservationId).stream()
                         .map(ReservationDetailResponse.TicketResponse::of)
@@ -107,7 +102,7 @@ public class ReservationService {
 
         return ReservationDetailResponse.builder()
                 .reservationId(reservation.getId())
-                .status(resolveStatus(reservation, LocalDateTime.now()))
+                .status(reservation.getStatusAt(LocalDateTime.now(clock)))
                 .totalPrice(reservation.getTotalPrice())
                 .expiresAt(reservation.getExpiresAt())
                 .createdAt(reservation.getCreatedAt())
@@ -121,29 +116,26 @@ public class ReservationService {
                 .orElseThrow(() -> new GeneralException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
     }
 
-    private Reservation findReservation(Long reservationId) {
+    private Member findMember(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+    }
+
+    // 다른 회원의 예약은 존재 여부를 드러내지 않도록 없는 예약과 같게 처리한다.
+    private Reservation findReservation(Long memberId, Long reservationId) {
         return reservationRepository.findDetailById(reservationId)
+                .filter(reservation -> reservation.isOwnedBy(memberId))
                 .orElseThrow(() -> new GeneralException(ReservationErrorCode.RESERVATION_NOT_FOUND));
     }
 
     private Fare findAdultFare(Schedule schedule, SeatClass seatClass) {
-        return fareRepository
-                .findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
+        return fareRepository.findFare(
                         schedule.getDepartureStation().getId(),
                         schedule.getArrivalStation().getId(),
                         schedule.getTrain().getTrainType(),
                         seatClass,
-                        PassengerType.ADULT
-                )
-                .orElseThrow(() -> new GeneralException(CommonErrorCode.INTERNAL_SERVER_ERROR));
-    }
-
-    // 결제 대기 시간이 지난 PENDING 예약은 EXPIRED로 응답한다.
-    private ReservationStatus resolveStatus(Reservation reservation, LocalDateTime now) {
-        if (reservation.getStatus() == ReservationStatus.PENDING && !reservation.getExpiresAt().isAfter(now)) {
-            return ReservationStatus.EXPIRED;
-        }
-        return reservation.getStatus();
+                        PassengerType.ADULT)
+                .orElseThrow(() -> new GeneralException(ScheduleErrorCode.FARE_NOT_FOUND));
     }
 
     private List<Seat> validateAndGetSelectedSeats(
@@ -186,7 +178,7 @@ public class ReservationService {
             Set<Long> occupiedSeatIds
     ) {
         List<Seat> availableSeats = seatRepository
-                .findAllByTrainIdAndSeatClass(schedule.getTrain().getId(), seatClass)
+                .findSeatsByTrainAndSeatClass(schedule.getTrain(), seatClass)
                 .stream()
                 .filter(seat -> !occupiedSeatIds.contains(seat.getId()))
                 .toList();
@@ -205,11 +197,5 @@ public class ReservationService {
                 .findFirst()
                 .map(seats -> seats.subList(0, passengerCount))
                 .orElseGet(() -> availableSeats.subList(0, passengerCount));
-    }
-
-    private void validateSupportedSeatClass(SeatClass seatClass) {
-        if (seatClass != SeatClass.STANDARD) {
-            throw new GeneralException(ReservationErrorCode.UNSUPPORTED_SEAT_CLASS);
-        }
     }
 }
