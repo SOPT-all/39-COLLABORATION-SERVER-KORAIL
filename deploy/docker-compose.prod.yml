@@ -1,0 +1,24 @@
+name: sopt-korail
+
+services:
+  api:
+    image: ${API_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: "prod"
+      DB_URL: "jdbc:mysql://mysql:3306/sopt_korail"
+      DB_USERNAME: "sopt_korail"
+    mem_limit: 512m
+    networks: [edge, db]
+    labels:
+      caddy: ${API_DOMAIN}
+      caddy.reverse_proxy: "{{upstreams 8080}}"
+      caddy.encode: zstd gzip
+
+networks:
+  edge:
+    external: true
+  db:
+    external: true
