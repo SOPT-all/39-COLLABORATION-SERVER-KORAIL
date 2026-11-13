@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,7 @@ public class ScheduleService {
         validatePassengerCount(passengerCount);
 
         List<Schedule> schedules = scheduleQueryRepository.findSchedules(
-                DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, departureDate, trainTypes);
+                DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, departureDate, trainTypes, LocalDateTime.now());
         Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType();
 
         List<ScheduleResponse> responses = schedules.stream()

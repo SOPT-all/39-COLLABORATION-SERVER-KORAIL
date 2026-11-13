@@ -9,6 +9,7 @@ import org.sopt.korail.schedule.domain.Schedule;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.sopt.korail.schedule.domain.QSchedule.schedule;
@@ -23,11 +24,13 @@ public class ScheduleQueryRepository {
     private final JPAQueryFactory queryFactory;
 
     // 출발일과 열차 종류는 선택 조건이다. null이거나 비어 있으면 조건에서 제외한다.
+    // 이미 출발한 열차는 항상 제외한다. 출발일을 오늘로 지정한 경우에도 지난 시각은 걸러야 한다.
     public List<Schedule> findSchedules(
             String departureStationName,
             String arrivalStationName,
             LocalDate departureDate,
-            List<TrainType> trainTypes
+            List<TrainType> trainTypes,
+            LocalDateTime now
     ) {
         return queryFactory
                 .selectFrom(schedule)
@@ -37,6 +40,7 @@ public class ScheduleQueryRepository {
                 .where(
                         departureStation.name.eq(departureStationName),
                         arrivalStation.name.eq(arrivalStationName),
+                        schedule.departureAt.gt(now),
                         departureDateEq(departureDate),
                         trainTypeIn(trainTypes)
                 )

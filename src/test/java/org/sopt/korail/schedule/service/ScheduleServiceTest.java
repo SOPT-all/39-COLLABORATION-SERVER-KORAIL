@@ -22,11 +22,14 @@ import org.sopt.korail.schedule.repository.ScheduleQueryRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,7 +69,7 @@ class ScheduleServiceTest {
             @DisplayName("열차별 운임을 인원수만큼 곱하고 일반실, 특실 순으로 반환한다")
             void 조회성공_운임인원수반영() {
                 Schedule schedule = schedule();
-                given(scheduleQueryRepository.findSchedules(DEPARTURE, ARRIVAL, DATE, null))
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class)))
                         .willReturn(List.of(schedule));
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
@@ -86,7 +89,7 @@ class ScheduleServiceTest {
             @Test
             @DisplayName("조건에 맞는 열차가 없으면 빈 목록을 반환한다")
             void 조회성공_결과없음_빈목록() {
-                given(scheduleQueryRepository.findSchedules(DEPARTURE, ARRIVAL, DATE, null)).willReturn(List.of());
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class))).willReturn(List.of());
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
                 ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
@@ -97,7 +100,7 @@ class ScheduleServiceTest {
             @Test
             @DisplayName("해당 열차 종류의 운임이 없으면 운임 목록이 비어 있다")
             void 조회성공_운임없음_빈운임() {
-                given(scheduleQueryRepository.findSchedules(DEPARTURE, ARRIVAL, DATE, null))
+                given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), any(LocalDateTime.class)))
                         .willReturn(List.of(schedule()));
                 given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
 
@@ -118,7 +121,7 @@ class ScheduleServiceTest {
                         .isInstanceOfSatisfying(GeneralException.class,
                                 e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.BAD_REQUEST));
 
-                verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any());
+                verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any(), any());
             }
 
             @Test
