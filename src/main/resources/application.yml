@@ -8,10 +8,20 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
+    defer-datasource-initialization: true
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
 
 # dev 는 dev/.env, prod 는 GitHub 변수(CORS_ALLOWED_ORIGINS)에서 주입된다 (쉼표로 구분)
 cors:

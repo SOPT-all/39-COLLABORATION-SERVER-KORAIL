@@ -49,6 +49,7 @@ public class SeatController implements SeatApi {
 - 인터페이스: 매핑, 스웨거 문서(`@Operation`, `@Parameter`), 파라미터 어노테이션
 - 구현 클래스: `@Api{Domain}Success`, `@Api{Domain}Errors`
 - 인증(`Member-Id` 헤더)이 필요 없는 API는 `@SecurityRequirements`를 붙입니다.
+- 회원 식별이 필요한 API는 인터페이스에서 `@Parameter(hidden = true) @RequestHeader("Member-Id") Long memberId`로 받습니다. 스웨거에서는 Authorize로 값을 넣습니다.
 - URL은 `/api/v1/` + 복수형 리소스입니다.
 
 ### 응답 규칙
@@ -156,6 +157,7 @@ public class ScheduleQueryRepository {
 - 연관관계는 `@ManyToOne(fetch = FetchType.LAZY)`로 둡니다.
 - enum 필드는 `@Enumerated(EnumType.STRING)`을 붙입니다.
 - 생성·수정 시간이 필요하면 `BaseTimeEntity`를 상속합니다.
+- 엔티티 필드만으로 계산되는 값이나 상태 판단은 엔티티 메서드로 둡니다. 서비스나 DTO에서 같은 계산을 반복하지 않습니다.
 
 ### 생성
 - 기본 생성자는 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`로 둡니다.

@@ -26,7 +26,7 @@ public record SeatResponse(
     public static SeatResponse of(Seat seat, boolean available) {
         return new SeatResponse(
                 seat.getId(),
-                seat.getSeatRow() + seat.getSeatCol(),
+                seat.getSeatNumber(),
                 seat.getSeatRow(),
                 seat.getSeatCol(),
                 seat.getDirection(),

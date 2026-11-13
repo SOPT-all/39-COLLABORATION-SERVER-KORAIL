@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.enums.PassengerType;
 import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.enums.TrainType;
@@ -33,8 +32,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.sopt.korail.global.config.TimeConfig.KST;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.sopt.korail.support.fixture.FareFixture.fare;
 import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.sopt.korail.support.fixture.ScheduleFixture.schedule;
@@ -81,7 +78,7 @@ class ScheduleServiceTest {
                 Schedule schedule = schedule();
                 given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW)))
                         .willReturn(List.of(schedule));
-                given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
+                given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
                 ScheduleListResponse response = scheduleService.getSchedules(DATE, 2, null);
 
@@ -100,7 +97,7 @@ class ScheduleServiceTest {
             @DisplayName("조건에 맞는 열차가 없으면 빈 목록을 반환한다")
             void 조회성공_결과없음_빈목록() {
                 given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW))).willReturn(List.of());
-                given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
+                given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
                 ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
 
@@ -112,7 +109,7 @@ class ScheduleServiceTest {
             void 조회성공_운임없음_빈운임() {
                 given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW)))
                         .willReturn(List.of(schedule()));
-                given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
+                given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
 
                 ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
 
@@ -120,28 +117,6 @@ class ScheduleServiceTest {
             }
         }
 
-        @Nested
-        @DisplayName("실패")
-        class Failure {
-
-            @Test
-            @DisplayName("인원수가 0이면 BAD_REQUEST 예외가 발생한다")
-            void 인원수0_BAD_REQUEST() {
-                assertThatThrownBy(() -> scheduleService.getSchedules(DATE, 0, null))
-                        .isInstanceOfSatisfying(GeneralException.class,
-                                e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.BAD_REQUEST));
-
-                verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any(), any());
-            }
-
-            @Test
-            @DisplayName("인원수가 10이면 BAD_REQUEST 예외가 발생한다")
-            void 인원수10_BAD_REQUEST() {
-                assertThatThrownBy(() -> scheduleService.getSchedules(DATE, 10, null))
-                        .isInstanceOfSatisfying(GeneralException.class,
-                                e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.BAD_REQUEST));
-            }
-        }
     }
 
     @Nested
@@ -156,7 +131,7 @@ class ScheduleServiceTest {
             @DisplayName("스케줄 상세와 인원수를 반영한 운임을 반환한다")
             void 조회성공_상세와운임() {
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule());
-                given(fareRepository.findFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
+                given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
                 ScheduleDetailResponse response = scheduleService.getSchedule(SCHEDULE_ID, 3);
 
@@ -182,16 +157,6 @@ class ScheduleServiceTest {
                 assertThatThrownBy(() -> scheduleService.getSchedule(SCHEDULE_ID, 1))
                         .isInstanceOfSatisfying(GeneralException.class,
                                 e -> assertThat(e.getErrorCode()).isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
-            }
-
-            @Test
-            @DisplayName("인원수가 범위를 벗어나면 BAD_REQUEST 예외가 발생한다")
-            void 인원수범위초과_BAD_REQUEST() {
-                assertThatThrownBy(() -> scheduleService.getSchedule(SCHEDULE_ID, 10))
-                        .isInstanceOfSatisfying(GeneralException.class,
-                                e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.BAD_REQUEST));
-
-                verify(scheduleRepository, never()).getByIdOrThrow(any());
             }
         }
     }

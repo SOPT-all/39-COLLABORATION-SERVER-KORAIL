@@ -55,4 +55,9 @@ public class Seat {
         this.seatRow = seatRow;
         this.seatCol = seatCol;
     }
+
+    // 행과 열을 이어 붙인 좌석 번호 (예: 1A)
+    public String getSeatNumber() {
+        return seatRow + seatCol;
+    }
 }

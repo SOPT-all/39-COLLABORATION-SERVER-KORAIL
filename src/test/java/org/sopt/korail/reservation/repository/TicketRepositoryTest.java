@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@ActiveProfiles("test")
 @Import(JpaConfig.class)
 @DisplayName("TicketRepository 테스트")
 class TicketRepositoryTest {
@@ -69,25 +71,57 @@ class TicketRepositoryTest {
     class FindOccupiedSeatIds {
 
         @Test
-        @DisplayName("결제 기한이 남은 예약의 티켓 좌석을 반환한다")
-        void 유효한예약_좌석반환() {
-            ticket(reservation(schedule, AFTER_NOW), seat, null);
+        @DisplayName("결제 완료 예약의 좌석은 결제 기한과 상관없이 반환한다")
+        void 결제완료예약_좌석반환() {
+            ticket(reservation(schedule, ReservationStatus.PAID, BEFORE_NOW), seat, null);
 
             assertThat(find()).containsExactly(seat.getId());
         }
 
         @Test
-        @DisplayName("반환된 티켓의 좌석은 반환하지 않는다")
-        void 반환된티켓_제외() {
-            ticket(reservation(schedule, AFTER_NOW), seat, NOW);
+        @DisplayName("결제 기한이 남은 대기 예약의 좌석을 반환한다")
+        void 유효한대기예약_좌석반환() {
+            ticket(reservation(schedule, ReservationStatus.PENDING, AFTER_NOW), seat, null);
 
-            assertThat(find()).isEmpty();
+            assertThat(find()).containsExactly(seat.getId());
         }
 
         @Test
         @DisplayName("결제 기한이 지난 대기 예약의 좌석은 반환하지 않는다")
         void 만료된대기예약_제외() {
-            ticket(reservation(schedule, BEFORE_NOW), seat, null);
+            ticket(reservation(schedule, ReservationStatus.PENDING, BEFORE_NOW), seat, null);
+
+            assertThat(find()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("결제 기한 시각과 현재 시각이 같으면 만료로 보고 반환하지 않는다")
+        void 결제기한경계_제외() {
+            ticket(reservation(schedule, ReservationStatus.PENDING, NOW), seat, null);
+
+            assertThat(find()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("취소된 예약의 좌석은 결제 기한이 남아도 반환하지 않는다")
+        void 취소된예약_제외() {
+            ticket(reservation(schedule, ReservationStatus.CANCELED, AFTER_NOW), seat, null);
+
+            assertThat(find()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("만료 상태 예약의 좌석은 결제 기한이 남아도 반환하지 않는다")
+        void 만료상태예약_제외() {
+            ticket(reservation(schedule, ReservationStatus.EXPIRED, AFTER_NOW), seat, null);
+
+            assertThat(find()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("반환된 티켓의 좌석은 반환하지 않는다")
+        void 반환된티켓_제외() {
+            ticket(reservation(schedule, ReservationStatus.PAID, AFTER_NOW), seat, NOW);
 
             assertThat(find()).isEmpty();
         }
@@ -95,25 +129,43 @@ class TicketRepositoryTest {
         @Test
         @DisplayName("다른 스케줄의 예약 좌석은 반환하지 않는다")
         void 다른스케줄예약_제외() {
-            ticket(reservation(persistSchedule(), AFTER_NOW), seat, null);
+            ticket(reservation(persistSchedule(), ReservationStatus.PAID, AFTER_NOW), seat, null);
 
             assertThat(find()).isEmpty();
         }
+    }
+
+    @Nested
+    @DisplayName("예약의 유효 티켓 조회(findActiveTicketsByReservationId)")
+    class FindActiveTicketsByReservationId {
 
         @Test
-        @DisplayName("다른 호차의 좌석은 반환하지 않는다")
-        void 다른호차좌석_제외() {
-            Seat otherCoachSeat = persistSeat(persistCoach(2), "A");
-            ticket(reservation(schedule, AFTER_NOW), otherCoachSeat, null);
+        @DisplayName("반환되지 않은 티켓만 호차, 행, 열 순으로 반환한다")
+        void 유효티켓_호차행열순정렬() {
+            Reservation reservation = reservation(schedule, ReservationStatus.PAID, AFTER_NOW);
+            Seat secondCoachSeat = persistSeat(persistCoach(2), "A");
+            Seat firstCoachSeatB = persistSeat(coach, "B");
+            Seat returnedSeat = persistSeat(coach, "C");
+            ticket(reservation, secondCoachSeat, null);
+            ticket(reservation, firstCoachSeatB, null);
+            ticket(reservation, seat, null);
+            ticket(reservation, returnedSeat, NOW);
+            ticket(reservation(schedule, ReservationStatus.PAID, AFTER_NOW), persistSeat(coach, "D"), null);
+            em.flush();
+            em.clear();
 
-            assertThat(find()).isEmpty();
+            List<Ticket> result = ticketRepository.findActiveTicketsByReservationId(reservation.getId());
+
+            assertThat(result)
+                    .extracting(ticket -> ticket.getSeat().getId())
+                    .containsExactly(seat.getId(), firstCoachSeatB.getId(), secondCoachSeat.getId());
         }
     }
 
     private List<Long> find() {
         em.flush();
         em.clear();
-        return ticketRepository.findOccupiedSeatIds(schedule, coach, NOW);
+        return ticketRepository.findOccupiedSeatIds(schedule.getId(), NOW);
     }
 
     private Schedule persistSchedule() {
@@ -143,11 +195,11 @@ class TicketRepositoryTest {
                 .build());
     }
 
-    private Reservation reservation(Schedule schedule, LocalDateTime expiresAt) {
+    private Reservation reservation(Schedule schedule, ReservationStatus status, LocalDateTime expiresAt) {
         return em.persist(Reservation.builder()
                 .schedule(schedule)
                 .member(member)
-                .status(ReservationStatus.PENDING)
+                .status(status)
                 .totalPrice(59800)
                 .expiresAt(expiresAt)
                 .build());

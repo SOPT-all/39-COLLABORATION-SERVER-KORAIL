@@ -17,7 +17,6 @@ import org.sopt.korail.seat.code.SeatErrorCode;
 import org.sopt.korail.seat.domain.Coach;
 import org.sopt.korail.seat.domain.Direction;
 import org.sopt.korail.seat.domain.Seat;
-import org.sopt.korail.seat.dto.CoachSeatSummary;
 import org.sopt.korail.seat.dto.response.CoachListResponse;
 import org.sopt.korail.seat.dto.response.CoachResponse;
 import org.sopt.korail.seat.dto.response.SeatLayoutResponse;
@@ -33,7 +32,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -79,8 +77,8 @@ class SeatServiceTest {
                 Seat empty = seat(coach, 102L, 1, "B");
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
                 given(coachRepository.findByIdAndTrain(COACH_ID, schedule.getTrain())).willReturn(Optional.of(coach));
-                given(seatRepository.findSeats(coach)).willReturn(List.of(occupied, empty));
-                given(ticketRepository.findOccupiedSeatIds(eq(schedule), eq(coach), eq(NOW)))
+                given(seatRepository.findSeatsByCoach(coach)).willReturn(List.of(occupied, empty));
+                given(ticketRepository.findOccupiedSeatIds(SCHEDULE_ID, NOW))
                         .willReturn(List.of(101L));
 
                 SeatLayoutResponse result = seatService.getSeats(SCHEDULE_ID, COACH_ID);
@@ -125,7 +123,7 @@ class SeatServiceTest {
                         .isInstanceOf(GeneralException.class)
                         .satisfies(ex -> assertThat(((GeneralException) ex).getErrorCode())
                                 .isEqualTo(SeatErrorCode.COACH_NOT_FOUND));
-                verify(seatRepository, never()).findSeats(any());
+                verify(seatRepository, never()).findSeatsByCoach(any());
             }
         }
     }
@@ -139,40 +137,83 @@ class SeatServiceTest {
         class Success {
 
             @Test
-            @DisplayName("전체 좌석 수에서 점유 좌석 수를 빼서 잔여 좌석 수를 반환한다")
-            void 집계결과_잔여석계산() {
+            @DisplayName("호차별 전체 좌석 수에서 점유 좌석 수를 빼서 잔여 좌석 수를 반환한다")
+            void 호차별_잔여석계산() {
                 Schedule schedule = schedule();
+                Coach coach1 = coach(10L, schedule.getTrain(), 1, SeatClass.STANDARD);
+                Coach coach2 = coach(20L, schedule.getTrain(), 2, SeatClass.STANDARD);
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), eq(NOW)))
-                        .willReturn(List.of(new CoachSeatSummary(10L, 1, 48, 31)));
+                given(coachRepository.findCoachesByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of(coach1, coach2));
+                given(seatRepository.findSeatsByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of(
+                                seat(coach1, 101L, 1, "A"),
+                                seat(coach1, 102L, 1, "B"),
+                                seat(coach1, 103L, 1, "C"),
+                                seat(coach2, 201L, 1, "A"),
+                                seat(coach2, 202L, 1, "B")));
+                given(ticketRepository.findOccupiedSeatIds(SCHEDULE_ID, NOW)).willReturn(List.of(101L, 201L));
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD);
 
                 assertThat(result.scheduleId()).isEqualTo(SCHEDULE_ID);
                 assertThat(result.seatClass()).isEqualTo(SeatClass.STANDARD);
-                assertThat(result.coaches()).containsExactly(CoachResponse.builder()
-                        .coachId(10L)
-                        .coachNumber(1)
-                        .remainingSeatCount(17)
-                        .totalSeatCount(48)
-                        .reservable(true)
-                        .build());
+                assertThat(result.coaches()).containsExactly(
+                        CoachResponse.builder()
+                                .coachId(10L)
+                                .coachNumber(1)
+                                .remainingSeatCount(2)
+                                .totalSeatCount(3)
+                                .reservable(true)
+                                .build(),
+                        CoachResponse.builder()
+                                .coachId(20L)
+                                .coachNumber(2)
+                                .remainingSeatCount(1)
+                                .totalSeatCount(2)
+                                .reservable(true)
+                                .build());
             }
 
             @Test
             @DisplayName("잔여 좌석이 없으면 선택 불가로 반환한다")
             void 잔여석없음_선택불가() {
                 Schedule schedule = schedule();
+                Coach coach = coach(10L, schedule.getTrain(), 3, SeatClass.STANDARD);
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.STANDARD), eq(NOW)))
-                        .willReturn(List.of(new CoachSeatSummary(10L, 3, 48, 48)));
+                given(coachRepository.findCoachesByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of(coach));
+                given(seatRepository.findSeatsByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of(seat(coach, 101L, 1, "A"), seat(coach, 102L, 1, "B")));
+                given(ticketRepository.findOccupiedSeatIds(SCHEDULE_ID, NOW)).willReturn(List.of(101L, 102L));
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD);
 
                 assertThat(result.coaches()).singleElement()
-                        .satisfies(coach -> {
-                            assertThat(coach.remainingSeatCount()).isZero();
-                            assertThat(coach.reservable()).isFalse();
+                        .satisfies(response -> {
+                            assertThat(response.remainingSeatCount()).isZero();
+                            assertThat(response.reservable()).isFalse();
+                        });
+            }
+
+            @Test
+            @DisplayName("좌석이 없는 호차는 전체·잔여 좌석 0, 선택 불가로 반환한다")
+            void 좌석없는호차_선택불가() {
+                Schedule schedule = schedule();
+                Coach coach = coach(10L, schedule.getTrain(), 1, SeatClass.STANDARD);
+                given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
+                given(coachRepository.findCoachesByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of(coach));
+                given(seatRepository.findSeatsByTrainAndSeatClass(schedule.getTrain(), SeatClass.STANDARD))
+                        .willReturn(List.of());
+
+                CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.STANDARD);
+
+                assertThat(result.coaches()).singleElement()
+                        .satisfies(response -> {
+                            assertThat(response.totalSeatCount()).isZero();
+                            assertThat(response.remainingSeatCount()).isZero();
+                            assertThat(response.reservable()).isFalse();
                         });
             }
 
@@ -181,7 +222,7 @@ class SeatServiceTest {
             void 호차없음_빈목록반환() {
                 Schedule schedule = schedule();
                 given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID)).willReturn(schedule);
-                given(coachRepository.findCoachSeatSummaries(eq(schedule), eq(SeatClass.FIRST), eq(NOW)))
+                given(coachRepository.findCoachesByTrainAndSeatClass(schedule.getTrain(), SeatClass.FIRST))
                         .willReturn(List.of());
 
                 CoachListResponse result = seatService.getCoaches(SCHEDULE_ID, SeatClass.FIRST);
@@ -204,7 +245,7 @@ class SeatServiceTest {
                         .isInstanceOf(GeneralException.class)
                         .satisfies(ex -> assertThat(((GeneralException) ex).getErrorCode())
                                 .isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
-                verify(coachRepository, never()).findCoachSeatSummaries(any(), any(), any());
+                verify(coachRepository, never()).findCoachesByTrainAndSeatClass(any(), any());
             }
         }
     }

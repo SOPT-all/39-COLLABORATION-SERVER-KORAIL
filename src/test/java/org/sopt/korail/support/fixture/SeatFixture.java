@@ -14,12 +14,16 @@ public final class SeatFixture {
     }
 
     public static Coach coach(Train train) {
+        return coach(COACH_ID, train, 1, SeatClass.STANDARD);
+    }
+
+    public static Coach coach(Long id, Train train, int coachNumber, SeatClass seatClass) {
         Coach coach = Coach.builder()
                 .train(train)
-                .coachNumber(1)
-                .seatClass(SeatClass.STANDARD)
+                .coachNumber(coachNumber)
+                .seatClass(seatClass)
                 .build();
-        ReflectionTestUtils.setField(coach, "id", COACH_ID);
+        ReflectionTestUtils.setField(coach, "id", id);
         return coach;
     }
 

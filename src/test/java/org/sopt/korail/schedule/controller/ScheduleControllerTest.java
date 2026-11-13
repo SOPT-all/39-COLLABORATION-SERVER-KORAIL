@@ -97,11 +97,17 @@ class ScheduleControllerTest {
         class Failure {
 
             @Test
-            @DisplayName("인원수가 범위를 벗어나면 400을 반환한다")
-            void 인원수오류_400() throws Exception {
-                given(scheduleService.getSchedules(null, 10, null))
-                        .willThrow(new GeneralException(CommonErrorCode.BAD_REQUEST));
+            @DisplayName("인원수가 1보다 작으면 BAD_REQUEST를 반환한다")
+            void 목록조회시_인원수최소미만_400() throws Exception {
+                mockMvc.perform(get(SCHEDULES_URL).param("passengerCount", "0"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
 
+            @Test
+            @DisplayName("인원수가 9보다 크면 BAD_REQUEST를 반환한다")
+            void 목록조회시_인원수최대초과_400() throws Exception {
                 mockMvc.perform(get(SCHEDULES_URL).param("passengerCount", "10"))
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.isSuccess").value(false))
@@ -156,6 +162,24 @@ class ScheduleControllerTest {
                         .andExpect(status().isNotFound())
                         .andExpect(jsonPath("$.isSuccess").value(false))
                         .andExpect(jsonPath("$.code").value(ScheduleErrorCode.SCHEDULE_NOT_FOUND.getCode()));
+            }
+
+            @Test
+            @DisplayName("인원수가 1보다 작으면 BAD_REQUEST를 반환한다")
+            void 상세조회시_인원수최소미만_400() throws Exception {
+                mockMvc.perform(get(SCHEDULES_URL + "/{scheduleId}", SCHEDULE_ID).param("passengerCount", "0"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("인원수가 9보다 크면 BAD_REQUEST를 반환한다")
+            void 상세조회시_인원수최대초과_400() throws Exception {
+                mockMvc.perform(get(SCHEDULES_URL + "/{scheduleId}", SCHEDULE_ID).param("passengerCount", "10"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
             }
         }
     }

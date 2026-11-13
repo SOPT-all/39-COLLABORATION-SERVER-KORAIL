@@ -1,5 +1,6 @@
 package org.sopt.korail.schedule.repository;
 
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,13 +15,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
+@ActiveProfiles("test")
 @Import(JpaConfig.class)
 @DisplayName("ScheduleRepository 테스트")
 class ScheduleRepositoryTest {
@@ -64,6 +68,33 @@ class ScheduleRepositoryTest {
                         .satisfies(ex -> assertThat(((GeneralException) ex).getErrorCode())
                                 .isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("비관적 락 스케줄 조회(findByIdForUpdate)")
+    class FindByIdForUpdate {
+
+        @Test
+        @DisplayName("스케줄이 있으면 열차와 출발역, 도착역을 함께 조회한다")
+        void 스케줄있음_연관엔티티함께조회() {
+            Schedule saved = persistSchedule();
+            em.flush();
+            em.clear();
+
+            Optional<Schedule> result = scheduleRepository.findByIdForUpdate(saved.getId());
+
+            assertThat(result).hasValueSatisfying(schedule -> {
+                assertThat(Hibernate.isInitialized(schedule.getTrain())).isTrue();
+                assertThat(Hibernate.isInitialized(schedule.getDepartureStation())).isTrue();
+                assertThat(Hibernate.isInitialized(schedule.getArrivalStation())).isTrue();
+            });
+        }
+
+        @Test
+        @DisplayName("스케줄이 없으면 빈 Optional을 반환한다")
+        void 스케줄없음_빈결과() {
+            assertThat(scheduleRepository.findByIdForUpdate(NOT_EXIST_ID)).isEmpty();
         }
     }
 
