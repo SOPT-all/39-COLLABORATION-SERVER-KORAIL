@@ -19,6 +19,7 @@ import org.sopt.korail.seat.repository.SeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -32,11 +33,12 @@ public class SeatService {
     private final CoachRepository coachRepository;
     private final SeatRepository seatRepository;
     private final TicketRepository ticketRepository;
+    private final Clock clock;
 
     public CoachListResponse getCoaches(Long scheduleId, SeatClass seatClass) {
         Schedule schedule = scheduleRepository.getByIdOrThrow(scheduleId);
 
-        List<CoachResponse> coaches = coachRepository.findCoachSeatSummaries(schedule, seatClass, LocalDateTime.now())
+        List<CoachResponse> coaches = coachRepository.findCoachSeatSummaries(schedule, seatClass, LocalDateTime.now(clock))
                 .stream()
                 .map(this::toCoachResponse)
                 .toList();
@@ -51,7 +53,7 @@ public class SeatService {
 
         List<Seat> seats = seatRepository.findSeats(coach);
         Set<Long> occupiedSeatIds = new HashSet<>(
-                ticketRepository.findOccupiedSeatIds(schedule, coach, LocalDateTime.now()));
+                ticketRepository.findOccupiedSeatIds(schedule, coach, LocalDateTime.now(clock)));
 
         List<SeatResponse> seatResponses = seats.stream()
                 .map(seat -> SeatResponse.of(seat, !occupiedSeatIds.contains(seat.getId())))

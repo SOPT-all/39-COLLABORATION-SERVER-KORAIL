@@ -156,6 +156,25 @@ class ReservationServiceTest {
 
 - 서비스가 인터페이스와 구현체로 나뉘어 있으면 `@InjectMocks`에는 **구현체**를 선언합니다.
 
+### 현재 시각을 쓰는 서비스
+
+`Clock`을 주입받는 서비스는 `@InjectMocks` 대신 `@BeforeEach`에서 생성자로 직접 만듭니다.
+
+```java
+private static final LocalDateTime NOW = LocalDateTime.of(2026, 12, 1, 9, 0);
+private static final Clock FIXED_CLOCK = Clock.fixed(NOW.atZone(KST).toInstant(), KST);
+
+private SeatService seatService;
+
+@BeforeEach
+void setUp() {
+    seatService = new SeatService(scheduleRepository, coachRepository, seatRepository, ticketRepository, FIXED_CLOCK);
+}
+```
+
+- 시간은 `Clock.fixed(...)`로 고정합니다. `Clock`은 목으로 만들지 않습니다.
+- 시간을 받는 쿼리의 스텁·검증에는 `any(LocalDateTime.class)` 대신 `NOW`를 넘겨 서비스가 고정된 시각을 쓰는지 확인합니다.
+
 ### 예외 검증 형식 (고정)
 
 ```java

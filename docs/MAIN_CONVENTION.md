@@ -96,7 +96,7 @@ public @interface ApiSeatErrors {
 ### 트랜잭션
 - 클래스에 `@Transactional(readOnly = true)`, 변경 메서드에만 `@Transactional`을 붙입니다.
 - OSIV가 꺼져 있습니다. 엔티티 → DTO 변환은 서비스 안에서 끝내고, 컨트롤러로 엔티티를 넘기지 않습니다.
-- 현재 시간이 필요한 쿼리는 서비스에서 `LocalDateTime.now()`를 만들어 인자로 넘깁니다.
+- 현재 시각은 주입받은 `Clock`으로 `LocalDateTime.now(clock)`을 만들어 쿼리 인자로 넘깁니다. (`LocalDateTime.now()` 직접 호출 X)
 
 ### 조회 후 예외 처리
 - 한 서비스에서만 쓰면 서비스의 private 메서드로 둡니다.

@@ -42,7 +42,7 @@ public class Schedule {
     @Column(nullable = false)
     private LocalDateTime arrivalAt;
 
-    @Column(length = 100)
+    @Column(length = 50)
     private String remark;
 
     @Builder
