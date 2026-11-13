@@ -20,6 +20,7 @@
 | Controller | `@WebMvcTest` 슬라이스 테스트 | 필수 |
 | 엔티티 도메인 메서드 (상태 변경 등) | 순수 단위 테스트 | 로직이 있을 때만 |
 | Repository 커스텀 쿼리 | `@DataJpaTest` | 사람에게 확인 후 작성 |
+| Repository `get~OrThrow` default 메서드 | `@DataJpaTest` (성공/실패) | 필수 |
 
 테스트하지 않는 것:
 - getter, 빌더, DTO, `global/config`, `global/swagger`
