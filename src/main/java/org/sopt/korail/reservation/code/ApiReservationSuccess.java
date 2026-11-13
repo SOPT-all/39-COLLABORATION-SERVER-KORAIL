@@ -1,7 +1,6 @@
-package org.sopt.korail.reservation.swagger;
+package org.sopt.korail.reservation.code;
 
 import org.sopt.korail.global.swagger.SuccessCodeMarker;
-import org.sopt.korail.reservation.code.ReservationSuccessCode;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

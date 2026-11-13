@@ -4,30 +4,27 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.sopt.korail.global.enums.SeatClass;
-import org.sopt.korail.global.enums.PassengerType;
-import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.code.CommonErrorCode;
+import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.member.repository.MemberRepository;
 import org.sopt.korail.reservation.code.ReservationErrorCode;
 import org.sopt.korail.reservation.domain.Reservation;
 import org.sopt.korail.reservation.domain.ReservationStatus;
 import org.sopt.korail.reservation.domain.Ticket;
-import org.sopt.korail.reservation.dto.CreateReservationRequest;
-import org.sopt.korail.reservation.dto.CreateReservationResponse;
-import org.sopt.korail.reservation.dto.ReservationDetailResponse;
+import org.sopt.korail.reservation.dto.request.CreateReservationRequest;
+import org.sopt.korail.reservation.dto.response.CreateReservationResponse;
+import org.sopt.korail.reservation.dto.response.ReservationDetailResponse;
 import org.sopt.korail.reservation.repository.ReservationRepository;
 import org.sopt.korail.reservation.repository.TicketRepository;
+import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.schedule.domain.Schedule;
 import org.sopt.korail.schedule.repository.FareRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
-import org.sopt.korail.schedule.code.ScheduleErrorCode;
 import org.sopt.korail.seat.code.SeatErrorCode;
 import org.sopt.korail.seat.domain.Coach;
 import org.sopt.korail.seat.domain.Seat;
@@ -43,7 +40,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
-import static org.sopt.korail.support.fixture.ReservationFixture.*;
+import static org.sopt.korail.support.fixture.MemberFixture.MEMBER_ID;
+import static org.sopt.korail.support.fixture.MemberFixture.member;
+import static org.sopt.korail.support.fixture.ReservationFixture.RESERVATION_ID;
+import static org.sopt.korail.support.fixture.ReservationFixture.TICKET_ID;
+import static org.sopt.korail.support.fixture.ReservationFixture.reservation;
+import static org.sopt.korail.support.fixture.ReservationFixture.ticket;
+import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
+import static org.sopt.korail.support.fixture.ScheduleFixture.fare;
+import static org.sopt.korail.support.fixture.ScheduleFixture.schedule;
+import static org.sopt.korail.support.fixture.ScheduleFixture.train;
+import static org.sopt.korail.support.fixture.SeatFixture.coach;
+import static org.sopt.korail.support.fixture.SeatFixture.seat;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ReservationService 단위 테스트")
@@ -60,7 +68,7 @@ class ReservationServiceTest {
     @Mock private MemberRepository memberRepository;
 
     @Nested
-    @DisplayName("예약 생성")
+    @DisplayName("예약 생성(createReservation)")
     class CreateReservation {
 
         @Nested
@@ -69,10 +77,10 @@ class ReservationServiceTest {
 
             @Test
             @DisplayName("선택한 빈 좌석이면 PENDING 예약과 인원 수만큼 티켓을 생성한다")
-            void 선택좌석_예약을_생성한다() {
-                var schedule = schedule();
+            void 선택좌석_예약생성성공() {
+                Schedule schedule = schedule();
                 Coach coach = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
-                List<Seat> seats = List.of(seat(101L, coach, 1, "A"), seat(102L, coach, 1, "B"));
+                List<Seat> seats = List.of(seat(coach, 101L, 1, "A"), seat(coach, 102L, 1, "B"));
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, List.of(101L, 102L));
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
@@ -80,9 +88,9 @@ class ReservationServiceTest {
                 given(seatRepository.findAllByIdIn(request.seatIds())).willReturn(seats);
                 given(fareRepository.findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
                         any(), any(), any(), any(), any())).willReturn(Optional.of(fare(59_800)));
-                given(memberRepository.getReferenceById(1L)).willReturn(member());
-                given(reservationRepository.save(any())).willAnswer(invocation -> {
-                    Reservation saved = invocation.getArgument(0);
+                given(memberRepository.getReferenceById(MEMBER_ID)).willReturn(member());
+                given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> {
+                    Reservation saved = inv.getArgument(0);
                     ReflectionTestUtils.setField(saved, "id", RESERVATION_ID);
                     return saved;
                 });
@@ -103,14 +111,14 @@ class ReservationServiceTest {
 
             @Test
             @DisplayName("자동 배정하면 전원을 수용할 수 있는 가장 앞 호차에 함께 배정한다")
-            void 자동배정_같은호차를_우선한다() {
-                var schedule = schedule();
+            void 자동배정_같은호차우선() {
+                Schedule schedule = schedule();
                 Coach coach1 = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
                 Coach coach2 = coach(2L, schedule.getTrain(), 2, SeatClass.STANDARD);
                 List<Seat> seats = List.of(
-                        seat(101L, coach1, 1, "A"),
-                        seat(201L, coach2, 1, "A"),
-                        seat(202L, coach2, 1, "B")
+                        seat(coach1, 101L, 1, "A"),
+                        seat(coach2, 201L, 1, "A"),
+                        seat(coach2, 202L, 1, "B")
                 );
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, null);
@@ -120,8 +128,8 @@ class ReservationServiceTest {
                         .willReturn(seats);
                 given(fareRepository.findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
                         any(), any(), any(), any(), any())).willReturn(Optional.of(fare(59_800)));
-                given(memberRepository.getReferenceById(1L)).willReturn(member());
-                given(reservationRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+                given(memberRepository.getReferenceById(MEMBER_ID)).willReturn(member());
+                given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
 
                 reservationService.createReservation(request);
 
@@ -135,13 +143,13 @@ class ReservationServiceTest {
 
             @Test
             @DisplayName("한 호차에 전원을 배정할 수 없으면 호차 순서대로 분산 배정한다")
-            void 자동배정_여러호차에_분산한다() {
-                var schedule = schedule();
+            void 자동배정_여러호차분산() {
+                Schedule schedule = schedule();
                 Coach coach1 = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
                 Coach coach2 = coach(2L, schedule.getTrain(), 2, SeatClass.STANDARD);
                 List<Seat> seats = List.of(
-                        seat(101L, coach1, 1, "A"),
-                        seat(201L, coach2, 1, "A")
+                        seat(coach1, 101L, 1, "A"),
+                        seat(coach2, 201L, 1, "A")
                 );
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, null);
@@ -151,8 +159,8 @@ class ReservationServiceTest {
                         .willReturn(seats);
                 given(fareRepository.findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
                         any(), any(), any(), any(), any())).willReturn(Optional.of(fare(59_800)));
-                given(memberRepository.getReferenceById(1L)).willReturn(member());
-                given(reservationRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+                given(memberRepository.getReferenceById(MEMBER_ID)).willReturn(member());
+                given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
 
                 reservationService.createReservation(request);
 
@@ -170,8 +178,8 @@ class ReservationServiceTest {
         class Failure {
 
             @Test
-            @DisplayName("존재하지 않는 일정이면 SCHEDULE4041을 던진다")
-            void 없는일정_SCHEDULE4041을_던진다() {
+            @DisplayName("존재하지 않는 일정이면 SCHEDULE_NOT_FOUND를 던진다")
+            void 없는일정_예외() {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, null);
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.empty());
@@ -183,8 +191,8 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("특실을 요청하면 RESERVATION4004를 던진다")
-            void 특실요청_RESERVATION4004를_던진다() {
+            @DisplayName("특실을 요청하면 UNSUPPORTED_SEAT_CLASS를 던진다")
+            void 특실요청_예외() {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.FIRST, 1, null);
 
@@ -195,12 +203,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("선택한 좌석 수가 인원과 다르면 RESERVATION4001을 던진다")
-            void 좌석수불일치_RESERVATION4001을_던진다() {
-                var schedule = schedule();
+            @DisplayName("선택한 좌석 수가 인원 수와 다르면 SEAT_COUNT_MISMATCH를 던진다")
+            void 좌석수불일치_예외() {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, List.of(101L));
-                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
+                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule()));
                 given(ticketRepository.findOccupiedSeatIds(any(), any())).willReturn(List.of());
 
                 assertThatThrownBy(() -> reservationService.createReservation(request))
@@ -210,12 +217,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("중복된 좌석 ID가 있으면 RESERVATION4001을 던진다")
-            void 중복좌석_RESERVATION4001을_던진다() {
-                var schedule = schedule();
+            @DisplayName("중복된 좌석 ID가 있으면 SEAT_COUNT_MISMATCH를 던진다")
+            void 중복좌석_예외() {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, List.of(101L, 101L));
-                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
+                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule()));
                 given(ticketRepository.findOccupiedSeatIds(any(), any())).willReturn(List.of());
 
                 assertThatThrownBy(() -> reservationService.createReservation(request))
@@ -225,12 +231,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("존재하지 않는 좌석이면 SEAT4041을 던진다")
-            void 없는좌석_SEAT4041을_던진다() {
-                var schedule = schedule();
+            @DisplayName("존재하지 않는 좌석이면 SEAT_NOT_FOUND를 던진다")
+            void 없는좌석_예외() {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(999L));
-                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
+                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule()));
                 given(ticketRepository.findOccupiedSeatIds(any(), any())).willReturn(List.of());
                 given(seatRepository.findAllByIdIn(request.seatIds())).willReturn(List.of());
 
@@ -241,14 +246,13 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("다른 열차의 좌석이면 RESERVATION4002를 던진다")
-            void 다른열차좌석_RESERVATION4002를_던진다() {
-                var schedule = schedule();
+            @DisplayName("다른 열차의 좌석이면 SEAT_NOT_IN_SCHEDULE을 던진다")
+            void 다른열차좌석_예외() {
                 Coach otherTrainCoach = coach(1L, train(999L), 1, SeatClass.STANDARD);
-                Seat seat = seat(101L, otherTrainCoach, 1, "A");
+                Seat seat = seat(otherTrainCoach, 101L, 1, "A");
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(101L));
-                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
+                given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule()));
                 given(ticketRepository.findOccupiedSeatIds(any(), any())).willReturn(List.of());
                 given(seatRepository.findAllByIdIn(request.seatIds())).willReturn(List.of(seat));
 
@@ -259,11 +263,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("요청한 좌석 등급과 다르면 RESERVATION4003을 던진다")
-            void 다른좌석등급_RESERVATION4003을_던진다() {
-                var schedule = schedule();
-                Coach premiumCoach = coach(1L, schedule.getTrain(), 1, SeatClass.FIRST);
-                Seat seat = seat(101L, premiumCoach, 1, "A");
+            @DisplayName("요청한 좌석 등급과 다른 좌석이면 SEAT_CLASS_MISMATCH를 던진다")
+            void 다른좌석등급_예외() {
+                Schedule schedule = schedule();
+                Coach firstClassCoach = coach(1L, schedule.getTrain(), 1, SeatClass.FIRST);
+                Seat seat = seat(firstClassCoach, 101L, 1, "A");
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(101L));
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
@@ -277,11 +281,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("선택한 좌석이 점유 중이면 RESERVATION4091을 던진다")
-            void 점유좌석_RESERVATION4091을_던진다() {
-                var schedule = schedule();
+            @DisplayName("선택한 좌석이 점유 중이면 SEAT_ALREADY_RESERVED를 던진다")
+            void 점유좌석_예외() {
+                Schedule schedule = schedule();
                 Coach coach = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
-                Seat seat = seat(101L, coach, 1, "A");
+                Seat seat = seat(coach, 101L, 1, "A");
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(101L));
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
@@ -295,16 +299,16 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("자동 배정할 빈 좌석이 부족하면 RESERVATION4092를 던진다")
-            void 잔여좌석부족_RESERVATION4092를_던진다() {
-                var schedule = schedule();
+            @DisplayName("자동 배정할 빈 좌석이 부족하면 INSUFFICIENT_SEATS를 던진다")
+            void 잔여좌석부족_예외() {
+                Schedule schedule = schedule();
                 Coach coach = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, null);
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
                 given(ticketRepository.findOccupiedSeatIds(any(), any())).willReturn(List.of());
                 given(seatRepository.findAllByTrainIdAndSeatClass(schedule.getTrain().getId(), SeatClass.STANDARD))
-                        .willReturn(List.of(seat(101L, coach, 1, "A")));
+                        .willReturn(List.of(seat(coach, 101L, 1, "A")));
 
                 assertThatThrownBy(() -> reservationService.createReservation(request))
                         .isInstanceOf(GeneralException.class)
@@ -313,11 +317,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("일치하는 운임이 없으면 COMMON500을 던진다")
-            void 운임없음_COMMON500을_던진다() {
-                var schedule = schedule();
+            @DisplayName("일치하는 운임이 없으면 INTERNAL_SERVER_ERROR를 던진다")
+            void 운임없음_예외() {
+                Schedule schedule = schedule();
                 Coach coach = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
-                Seat seat = seat(101L, coach, 1, "A");
+                Seat seat = seat(coach, 101L, 1, "A");
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, List.of(101L));
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
@@ -333,11 +337,11 @@ class ReservationServiceTest {
             }
 
             @Test
-            @DisplayName("총 결제 금액이 int 범위를 넘으면 COMMON500을 던진다")
-            void 결제금액초과_COMMON500을_던진다() {
-                var schedule = schedule();
+            @DisplayName("총 결제 금액이 int 범위를 넘으면 INTERNAL_SERVER_ERROR를 던진다")
+            void 결제금액초과_예외() {
+                Schedule schedule = schedule();
                 Coach coach = coach(1L, schedule.getTrain(), 1, SeatClass.STANDARD);
-                List<Seat> seats = List.of(seat(101L, coach, 1, "A"), seat(102L, coach, 1, "B"));
+                List<Seat> seats = List.of(seat(coach, 101L, 1, "A"), seat(coach, 102L, 1, "B"));
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 2, List.of(101L, 102L));
                 given(scheduleRepository.findByIdForUpdate(SCHEDULE_ID)).willReturn(Optional.of(schedule));
@@ -355,73 +359,63 @@ class ReservationServiceTest {
     }
 
     @Nested
-    @DisplayName("예약 상세 조회")
+    @DisplayName("예약 상세 조회(getReservation)")
     class GetReservation {
 
-        @Test
-        @DisplayName("예약의 열차 정보와 승차권 좌석 정보를 응답한다")
-        void 예약상세_열차와좌석정보를_응답한다() {
-            Reservation reservation = reservation(ReservationStatus.PAID, LocalDateTime.now().plusMinutes(10));
-            Coach coach = coach(1L, reservation.getSchedule().getTrain(), 2, SeatClass.STANDARD);
-            Seat seat = seat(102L, coach, 3, "B");
-            Ticket ticket = Ticket.builder()
-                    .reservation(reservation)
-                    .seat(seat)
-                    .passengerType(PassengerType.ADULT)
-                    .price(59_800)
-                    .build();
-            ReflectionTestUtils.setField(ticket, "id", 100L);
-            given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.of(reservation));
-            given(ticketRepository.findActiveTicketsByReservationId(RESERVATION_ID)).willReturn(List.of(ticket));
+        @Nested
+        @DisplayName("성공")
+        class Success {
 
-            ReservationDetailResponse result = reservationService.getReservation(RESERVATION_ID);
+            @Test
+            @DisplayName("예약의 열차 정보와 승차권 좌석 정보를 응답한다")
+            void 예약상세_조회성공() {
+                Schedule schedule = schedule();
+                Reservation reservation = reservation(schedule, ReservationStatus.PAID, LocalDateTime.now().plusMinutes(10));
+                Coach coach = coach(1L, schedule.getTrain(), 2, SeatClass.STANDARD);
+                Ticket ticket = ticket(reservation, seat(coach, 102L, 3, "B"), 59_800);
+                given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.of(reservation));
+                given(ticketRepository.findActiveTicketsByReservationId(RESERVATION_ID)).willReturn(List.of(ticket));
 
-            assertThat(result.status()).isEqualTo(ReservationStatus.PAID);
-            assertThat(result.tickets()).singleElement().satisfies(response -> {
-                assertThat(response.ticketId()).isEqualTo(100L);
-                assertThat(response.coachNumber()).isEqualTo(2);
-                assertThat(response.seatNumber()).isEqualTo("3B");
-                assertThat(response.price()).isEqualTo(59_800);
-            });
+                ReservationDetailResponse result = reservationService.getReservation(RESERVATION_ID);
+
+                assertThat(result.status()).isEqualTo(ReservationStatus.PAID);
+                assertThat(result.schedule().trainTypeName()).isEqualTo("KTX");
+                assertThat(result.schedule().durationMinutes()).isEqualTo(180);
+                assertThat(result.tickets()).singleElement().satisfies(response -> {
+                    assertThat(response.ticketId()).isEqualTo(TICKET_ID);
+                    assertThat(response.coachNumber()).isEqualTo(2);
+                    assertThat(response.seatNumber()).isEqualTo("3B");
+                    assertThat(response.price()).isEqualTo(59_800);
+                });
+            }
+
+            @Test
+            @DisplayName("결제 기한이 지난 PENDING 예약이면 EXPIRED로 응답한다")
+            void 만료된예약_EXPIRED응답() {
+                Reservation reservation = reservation(schedule(), ReservationStatus.PENDING, LocalDateTime.now().minusMinutes(1));
+                given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.of(reservation));
+                given(ticketRepository.findActiveTicketsByReservationId(RESERVATION_ID)).willReturn(List.of());
+
+                ReservationDetailResponse result = reservationService.getReservation(RESERVATION_ID);
+
+                assertThat(result.status()).isEqualTo(ReservationStatus.EXPIRED);
+            }
         }
 
-        @ParameterizedTest(name = "{0}이면 표시 이름을 {1}로 응답한다")
-        @CsvSource({"KTX,KTX", "ITX,ITX-새마을", "MUGUNGHWA,무궁화"})
-        @DisplayName("열차 유형에 맞는 표시 이름을 응답한다")
-        void 열차유형_표시이름을_응답한다(TrainType trainType, String expectedName) {
-            Reservation reservation = reservation(ReservationStatus.PAID, LocalDateTime.now().plusMinutes(10));
-            ReflectionTestUtils.setField(reservation.getSchedule().getTrain(), "trainType", trainType);
-            given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.of(reservation));
-            given(ticketRepository.findActiveTicketsByReservationId(RESERVATION_ID)).willReturn(List.of());
+        @Nested
+        @DisplayName("실패")
+        class Failure {
 
-            ReservationDetailResponse result = reservationService.getReservation(RESERVATION_ID);
+            @Test
+            @DisplayName("존재하지 않는 예약이면 RESERVATION_NOT_FOUND를 던진다")
+            void 없는예약_예외() {
+                given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.empty());
 
-            assertThat(result.schedule().trainTypeName()).isEqualTo(expectedName);
-        }
-
-        @Test
-        @DisplayName("결제 기한이 지난 PENDING 예약이면 EXPIRED로 응답한다")
-        void 만료된예약_EXPIRED로_응답한다() {
-            Reservation reservation = reservation(ReservationStatus.PENDING, LocalDateTime.now().minusMinutes(1));
-            given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.of(reservation));
-            given(ticketRepository.findActiveTicketsByReservationId(RESERVATION_ID)).willReturn(List.of());
-
-            ReservationDetailResponse result = reservationService.getReservation(RESERVATION_ID);
-
-            assertThat(result.status()).isEqualTo(ReservationStatus.EXPIRED);
-            assertThat(result.schedule().durationMinutes()).isEqualTo(160);
-            assertThat(result.schedule().remark()).isEqualTo("서대구 정차");
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 예약이면 RESERVATION4041을 던진다")
-        void 없는예약_RESERVATION4041을_던진다() {
-            given(reservationRepository.findDetailById(RESERVATION_ID)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> reservationService.getReservation(RESERVATION_ID))
-                    .isInstanceOf(GeneralException.class)
-                    .satisfies(ex -> assertThat(((GeneralException) ex).getErrorCode())
-                            .isEqualTo(ReservationErrorCode.RESERVATION_NOT_FOUND));
+                assertThatThrownBy(() -> reservationService.getReservation(RESERVATION_ID))
+                        .isInstanceOf(GeneralException.class)
+                        .satisfies(ex -> assertThat(((GeneralException) ex).getErrorCode())
+                                .isEqualTo(ReservationErrorCode.RESERVATION_NOT_FOUND));
+            }
         }
     }
 }

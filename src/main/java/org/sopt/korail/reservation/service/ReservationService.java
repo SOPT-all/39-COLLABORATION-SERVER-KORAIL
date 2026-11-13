@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.enums.PassengerType;
 import org.sopt.korail.global.enums.SeatClass;
-import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.member.domain.Member;
 import org.sopt.korail.member.repository.MemberRepository;
@@ -12,9 +11,9 @@ import org.sopt.korail.reservation.code.ReservationErrorCode;
 import org.sopt.korail.reservation.domain.Reservation;
 import org.sopt.korail.reservation.domain.ReservationStatus;
 import org.sopt.korail.reservation.domain.Ticket;
-import org.sopt.korail.reservation.dto.CreateReservationRequest;
-import org.sopt.korail.reservation.dto.CreateReservationResponse;
-import org.sopt.korail.reservation.dto.ReservationDetailResponse;
+import org.sopt.korail.reservation.dto.request.CreateReservationRequest;
+import org.sopt.korail.reservation.dto.response.CreateReservationResponse;
+import org.sopt.korail.reservation.dto.response.ReservationDetailResponse;
 import org.sopt.korail.reservation.repository.ReservationRepository;
 import org.sopt.korail.reservation.repository.TicketRepository;
 import org.sopt.korail.schedule.code.ScheduleErrorCode;
@@ -28,7 +27,6 @@ import org.sopt.korail.seat.repository.SeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,6 +39,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ReservationService {
 
     private static final long FIXED_MEMBER_ID = 1L;
@@ -58,8 +57,7 @@ public class ReservationService {
         validateSupportedSeatClass(request.seatClass());
 
         // 같은 일정의 좌석 점유 확인과 티켓 생성을 직렬화해 동시 중복 예약을 막는다.
-        Schedule schedule = scheduleRepository.findByIdForUpdate(request.scheduleId())
-                .orElseThrow(() -> new GeneralException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+        Schedule schedule = findScheduleForUpdate(request.scheduleId());
         LocalDateTime now = LocalDateTime.now();
         Set<Long> occupiedSeatIds = new HashSet<>(
                 ticketRepository.findOccupiedSeatIds(schedule.getId(), now)
@@ -69,15 +67,7 @@ public class ReservationService {
                 ? assignSeats(schedule, request.seatClass(), request.passengerCount(), occupiedSeatIds)
                 : validateAndGetSelectedSeats(schedule, request, occupiedSeatIds);
 
-        Fare fare = fareRepository
-                .findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
-                        schedule.getDepartureStation().getId(),
-                        schedule.getArrivalStation().getId(),
-                        schedule.getTrain().getTrainType(),
-                        request.seatClass(),
-                        PassengerType.ADULT
-                )
-                .orElseThrow(() -> new GeneralException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+        Fare fare = findAdultFare(schedule, request.seatClass());
 
         int totalPrice;
         try {
@@ -105,60 +95,55 @@ public class ReservationService {
                 .toList();
         ticketRepository.saveAll(tickets);
 
-        return new CreateReservationResponse(reservation.getId());
+        return CreateReservationResponse.of(reservation);
     }
 
-    @Transactional(readOnly = true)
     public ReservationDetailResponse getReservation(Long reservationId) {
-        Reservation reservation = reservationRepository.findDetailById(reservationId)
+        Reservation reservation = findReservation(reservationId);
+        List<ReservationDetailResponse.TicketResponse> tickets =
+                ticketRepository.findActiveTicketsByReservationId(reservationId).stream()
+                        .map(ReservationDetailResponse.TicketResponse::of)
+                        .toList();
+
+        return ReservationDetailResponse.builder()
+                .reservationId(reservation.getId())
+                .status(resolveStatus(reservation, LocalDateTime.now()))
+                .totalPrice(reservation.getTotalPrice())
+                .expiresAt(reservation.getExpiresAt())
+                .createdAt(reservation.getCreatedAt())
+                .schedule(ReservationDetailResponse.ScheduleResponse.of(reservation.getSchedule()))
+                .tickets(tickets)
+                .build();
+    }
+
+    private Schedule findScheduleForUpdate(Long scheduleId) {
+        return scheduleRepository.findByIdForUpdate(scheduleId)
+                .orElseThrow(() -> new GeneralException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+    }
+
+    private Reservation findReservation(Long reservationId) {
+        return reservationRepository.findDetailById(reservationId)
                 .orElseThrow(() -> new GeneralException(ReservationErrorCode.RESERVATION_NOT_FOUND));
-        List<Ticket> tickets = ticketRepository.findActiveTicketsByReservationId(reservationId);
+    }
 
-        Schedule schedule = reservation.getSchedule();
-        ReservationStatus responseStatus = reservation.getStatus() == ReservationStatus.PENDING
-                && !reservation.getExpiresAt().isAfter(LocalDateTime.now())
-                ? ReservationStatus.EXPIRED
-                : reservation.getStatus();
-
-        ReservationDetailResponse.ScheduleResponse scheduleResponse =
-                new ReservationDetailResponse.ScheduleResponse(
-                        schedule.getId(),
-                        schedule.getTrain().getTrainNumber(),
+    private Fare findAdultFare(Schedule schedule, SeatClass seatClass) {
+        return fareRepository
+                .findByDepartureStationIdAndArrivalStationIdAndTrainTypeAndSeatClassAndPassengerType(
+                        schedule.getDepartureStation().getId(),
+                        schedule.getArrivalStation().getId(),
                         schedule.getTrain().getTrainType(),
-                        trainTypeName(schedule.getTrain().getTrainType()),
-                        schedule.getDepartureStation().getName(),
-                        schedule.getArrivalStation().getName(),
-                        schedule.getDepartureAt(),
-                        schedule.getArrivalAt(),
-                        Duration.between(schedule.getDepartureAt(), schedule.getArrivalAt()).toMinutes(),
-                        schedule.getRemark()
-                );
+                        seatClass,
+                        PassengerType.ADULT
+                )
+                .orElseThrow(() -> new GeneralException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+    }
 
-        List<ReservationDetailResponse.TicketResponse> ticketResponses = tickets.stream()
-                .map(ticket -> {
-                    Seat seat = ticket.getSeat();
-                    return new ReservationDetailResponse.TicketResponse(
-                            ticket.getId(),
-                            seat.getCoach().getCoachNumber(),
-                            seat.getCoach().getSeatClass(),
-                            seat.getId(),
-                            seat.getSeatRow() + seat.getSeatCol(),
-                            seat.getDirection(),
-                            ticket.getPassengerType(),
-                            ticket.getPrice()
-                    );
-                })
-                .toList();
-
-        return new ReservationDetailResponse(
-                reservation.getId(),
-                responseStatus,
-                reservation.getTotalPrice(),
-                reservation.getExpiresAt(),
-                reservation.getCreatedAt(),
-                scheduleResponse,
-                ticketResponses
-        );
+    // 결제 대기 시간이 지난 PENDING 예약은 EXPIRED로 응답한다.
+    private ReservationStatus resolveStatus(Reservation reservation, LocalDateTime now) {
+        if (reservation.getStatus() == ReservationStatus.PENDING && !reservation.getExpiresAt().isAfter(now)) {
+            return ReservationStatus.EXPIRED;
+        }
+        return reservation.getStatus();
     }
 
     private List<Seat> validateAndGetSelectedSeats(
@@ -226,13 +211,5 @@ public class ReservationService {
         if (seatClass != SeatClass.STANDARD) {
             throw new GeneralException(ReservationErrorCode.UNSUPPORTED_SEAT_CLASS);
         }
-    }
-
-    private String trainTypeName(TrainType trainType) {
-        return switch (trainType) {
-            case KTX -> "KTX";
-            case ITX -> "ITX-새마을";
-            case MUGUNGHWA -> "무궁화";
-        };
     }
 }

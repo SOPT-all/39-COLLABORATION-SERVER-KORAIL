@@ -13,6 +13,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     @EntityGraph(attributePaths = {
             "schedule", "schedule.train", "schedule.departureStation", "schedule.arrivalStation"
     })
-    @Query("select r from Reservation r where r.id = :id")
+    @Query("""
+            select r
+            from Reservation r
+            where r.id = :id
+            """)
     Optional<Reservation> findDetailById(@Param("id") Long id);
 }

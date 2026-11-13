@@ -1,38 +1,46 @@
 package org.sopt.korail.reservation.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.sopt.korail.reservation.code.ApiReservationErrors;
+import org.sopt.korail.reservation.code.ApiReservationSuccess;
+import org.sopt.korail.reservation.code.ReservationErrorCode;
 import org.sopt.korail.reservation.code.ReservationSuccessCode;
-import org.sopt.korail.reservation.dto.CreateReservationRequest;
-import org.sopt.korail.reservation.dto.CreateReservationResponse;
-import org.sopt.korail.reservation.dto.ReservationDetailResponse;
+import org.sopt.korail.reservation.dto.request.CreateReservationRequest;
+import org.sopt.korail.reservation.dto.response.CreateReservationResponse;
+import org.sopt.korail.reservation.dto.response.ReservationDetailResponse;
 import org.sopt.korail.reservation.service.ReservationService;
-import org.sopt.korail.reservation.swagger.ApiReservationSuccess;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.sopt.korail.schedule.code.ApiScheduleErrors;
+import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.seat.code.ApiSeatErrors;
+import org.sopt.korail.seat.code.SeatErrorCode;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
-public class ReservationController {
+public class ReservationController implements ReservationApi {
 
     private final ReservationService reservationService;
 
-    @PostMapping
-    @ApiReservationSuccess(ReservationSuccessCode.CREATE_RESERVATION)
-    public CreateReservationResponse createReservation(
-            @Valid @RequestBody CreateReservationRequest request
-    ) {
+    @Override
+    @ApiReservationSuccess(ReservationSuccessCode.RESERVATION_CREATED)
+    @ApiReservationErrors({
+            ReservationErrorCode.UNSUPPORTED_SEAT_CLASS,
+            ReservationErrorCode.SEAT_COUNT_MISMATCH,
+            ReservationErrorCode.SEAT_NOT_IN_SCHEDULE,
+            ReservationErrorCode.SEAT_CLASS_MISMATCH,
+            ReservationErrorCode.SEAT_ALREADY_RESERVED,
+            ReservationErrorCode.INSUFFICIENT_SEATS
+    })
+    @ApiScheduleErrors({ScheduleErrorCode.SCHEDULE_NOT_FOUND})
+    @ApiSeatErrors({SeatErrorCode.SEAT_NOT_FOUND})
+    public CreateReservationResponse createReservation(CreateReservationRequest request) {
         return reservationService.createReservation(request);
     }
 
-    @GetMapping("/{reservationId}")
-    @ApiReservationSuccess(ReservationSuccessCode.GET_RESERVATION)
-    public ReservationDetailResponse getReservation(@PathVariable Long reservationId) {
+    @Override
+    @ApiReservationSuccess(ReservationSuccessCode.RESERVATION_DETAIL_OK)
+    @ApiReservationErrors({ReservationErrorCode.RESERVATION_NOT_FOUND})
+    public ReservationDetailResponse getReservation(Long reservationId) {
         return reservationService.getReservation(reservationId);
     }
 }

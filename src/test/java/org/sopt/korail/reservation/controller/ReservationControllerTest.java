@@ -9,9 +9,9 @@ import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.reservation.code.ReservationErrorCode;
 import org.sopt.korail.reservation.code.ReservationSuccessCode;
 import org.sopt.korail.reservation.domain.ReservationStatus;
-import org.sopt.korail.reservation.dto.CreateReservationRequest;
-import org.sopt.korail.reservation.dto.CreateReservationResponse;
-import org.sopt.korail.reservation.dto.ReservationDetailResponse;
+import org.sopt.korail.reservation.dto.request.CreateReservationRequest;
+import org.sopt.korail.reservation.dto.response.CreateReservationResponse;
+import org.sopt.korail.reservation.dto.response.ReservationDetailResponse;
 import org.sopt.korail.reservation.service.ReservationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -27,7 +27,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.sopt.korail.support.fixture.ReservationFixture.RESERVATION_ID;
-import static org.sopt.korail.support.fixture.ReservationFixture.SCHEDULE_ID;
+import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -62,7 +62,7 @@ class ReservationControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.isSuccess").value(true))
-                        .andExpect(jsonPath("$.code").value(ReservationSuccessCode.CREATE_RESERVATION.getCode()))
+                        .andExpect(jsonPath("$.code").value(ReservationSuccessCode.RESERVATION_CREATED.getCode()))
                         .andExpect(jsonPath("$.result.reservationId").value(RESERVATION_ID));
             }
         }
@@ -72,8 +72,8 @@ class ReservationControllerTest {
         class Failure {
 
             @Test
-            @DisplayName("인원 수가 1보다 작으면 COMMON400을 반환한다")
-            void 잘못된인원수_COMMON400을_반환한다() throws Exception {
+            @DisplayName("인원 수가 1보다 작으면 BAD_REQUEST를 반환한다")
+            void 잘못된인원수_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 0, null);
 
@@ -86,8 +86,8 @@ class ReservationControllerTest {
             }
 
             @Test
-            @DisplayName("인원 수가 9보다 크면 COMMON400을 반환한다")
-            void 최대인원초과_COMMON400을_반환한다() throws Exception {
+            @DisplayName("인원 수가 9보다 크면 BAD_REQUEST를 반환한다")
+            void 최대인원초과_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 10, null);
 
@@ -100,8 +100,8 @@ class ReservationControllerTest {
             }
 
             @Test
-            @DisplayName("일정 ID가 없으면 COMMON400을 반환한다")
-            void 일정ID없음_COMMON400을_반환한다() throws Exception {
+            @DisplayName("일정 ID가 없으면 BAD_REQUEST를 반환한다")
+            void 일정ID없음_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         null, SeatClass.STANDARD, 1, null);
 
@@ -114,8 +114,8 @@ class ReservationControllerTest {
             }
 
             @Test
-            @DisplayName("좌석 등급이 없으면 COMMON400을 반환한다")
-            void 좌석등급없음_COMMON400을_반환한다() throws Exception {
+            @DisplayName("좌석 등급이 없으면 BAD_REQUEST를 반환한다")
+            void 좌석등급없음_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, null, 1, null);
 
@@ -128,8 +128,8 @@ class ReservationControllerTest {
             }
 
             @Test
-            @DisplayName("좌석 ID 목록에 null이 있으면 COMMON400을 반환한다")
-            void 좌석ID가null_COMMON400을_반환한다() throws Exception {
+            @DisplayName("좌석 ID 목록에 null이 있으면 BAD_REQUEST를 반환한다")
+            void 좌석ID가null_400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 1, Collections.singletonList(null));
 
@@ -169,7 +169,7 @@ class ReservationControllerTest {
                 mockMvc.perform(get("/api/v1/reservations/{reservationId}", RESERVATION_ID))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.isSuccess").value(true))
-                        .andExpect(jsonPath("$.code").value(ReservationSuccessCode.GET_RESERVATION.getCode()))
+                        .andExpect(jsonPath("$.code").value(ReservationSuccessCode.RESERVATION_DETAIL_OK.getCode()))
                         .andExpect(jsonPath("$.result.reservationId").value(RESERVATION_ID))
                         .andExpect(jsonPath("$.result.status").value("PENDING"))
                         .andExpect(jsonPath("$.result.totalPrice").value(119_600));
@@ -181,8 +181,8 @@ class ReservationControllerTest {
         class Failure {
 
             @Test
-            @DisplayName("예약이 없으면 RESERVATION4041을 반환한다")
-            void 없는예약_RESERVATION4041을_반환한다() throws Exception {
+            @DisplayName("예약이 없으면 RESERVATION_NOT_FOUND를 반환한다")
+            void 없는예약_404를_반환한다() throws Exception {
                 given(reservationService.getReservation(RESERVATION_ID))
                         .willThrow(new GeneralException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
