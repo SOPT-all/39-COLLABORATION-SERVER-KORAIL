@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -75,6 +76,62 @@ class ReservationControllerTest {
             void 잘못된인원수_COMMON400을_반환한다() throws Exception {
                 CreateReservationRequest request = new CreateReservationRequest(
                         SCHEDULE_ID, SeatClass.STANDARD, 0, null);
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("인원 수가 9보다 크면 COMMON400을 반환한다")
+            void 최대인원초과_COMMON400을_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, SeatClass.STANDARD, 10, null);
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("일정 ID가 없으면 COMMON400을 반환한다")
+            void 일정ID없음_COMMON400을_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        null, SeatClass.STANDARD, 1, null);
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("좌석 등급이 없으면 COMMON400을 반환한다")
+            void 좌석등급없음_COMMON400을_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, null, 1, null);
+
+                mockMvc.perform(post("/api/v1/reservations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(CommonErrorCode.BAD_REQUEST.getCode()));
+            }
+
+            @Test
+            @DisplayName("좌석 ID 목록에 null이 있으면 COMMON400을 반환한다")
+            void 좌석ID가null_COMMON400을_반환한다() throws Exception {
+                CreateReservationRequest request = new CreateReservationRequest(
+                        SCHEDULE_ID, SeatClass.STANDARD, 1, Collections.singletonList(null));
 
                 mockMvc.perform(post("/api/v1/reservations")
                                 .contentType(MediaType.APPLICATION_JSON)
