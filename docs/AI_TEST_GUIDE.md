@@ -9,6 +9,7 @@
 - Jackson 3을 사용합니다. `ObjectMapper`는 `tools.jackson.databind.ObjectMapper`를 import합니다. (`com.fasterxml.jackson.databind` 아님)
 - `@WebMvcTest`는 `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`를 import합니다. (Boot 4에서 패키지 변경)
 - Mock 빈은 `@MockitoBean`을 사용합니다. (`@MockBean`은 사용하지 않음)
+- `@DataJpaTest`에는 `@ActiveProfiles("test")`를 함께 붙입니다. (MySQL용 `data.sql` 시딩이 H2에서 실행되지 않도록 `application-test.yml`에서 꺼 둠)
 - 성공 응답은 `ApiResponseAdvice`가 `ApiResponse`로 자동 래핑합니다. 응답 JSON 형태는 `{ isSuccess, code, message, result }`입니다.
 - 서비스 예외는 `GeneralException(BaseErrorCode)`로 던지고, `GlobalExceptionHandler`가 에러 응답으로 바꿉니다.
 
