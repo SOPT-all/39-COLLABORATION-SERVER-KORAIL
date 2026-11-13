@@ -27,7 +27,7 @@ public interface ScheduleApi {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
             @Parameter(description = "인원수 (1~9, 기본값 1)", example = "1")
             @RequestParam(defaultValue = "1") int passengerCount,
-            @Parameter(description = "열차 종류 필터 (쉼표 구분), 미입력 시 전체", example = "KTX,ITX")
+            @Parameter(description = "열차 종류 필터. 여러 개는 키를 반복해 보냅니다 (trainTypes=KTX&trainTypes=ITX). 미입력 시 전체", example = "KTX")
             @RequestParam(required = false) List<TrainType> trainTypes
     );
 
