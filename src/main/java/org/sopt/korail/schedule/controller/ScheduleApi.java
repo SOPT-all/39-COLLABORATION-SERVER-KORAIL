@@ -21,7 +21,7 @@ import java.util.List;
 @Tag(name = "열차 API", description = "열차 조회와 관련된 API 입니다")
 @RequestMapping(path = "/api/v1/schedules")
 public interface ScheduleApi {
-    @Operation(summary = "열차 목록 조회", description = "지정한 구간의 열차 목록을 열차 종류별 운임과 함께 조회합니다. 구간은 미입력 시 서울-부산이며, 출발일과 열차 종류는 선택 조건입니다. 이미 출발한 열차는 조회되지 않습니다.")
+    @Operation(summary = "열차 목록 조회", description = "지정한 구간의 열차 목록을 열차 종류별 운임과 함께 조회합니다. 구간은 미입력 시 서울-부산이며, 출발일과 열차 종류는 선택 조건입니다. 이미 출발한 열차는 조회되지 않고, 존재하지 않는 역을 지정하면 404로 응답합니다.")
     @SecurityRequirements
     @GetMapping
     ScheduleListResponse getSchedules(

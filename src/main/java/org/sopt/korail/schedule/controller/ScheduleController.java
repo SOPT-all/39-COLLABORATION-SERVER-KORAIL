@@ -24,6 +24,7 @@ public class ScheduleController implements ScheduleApi {
     @Override
     @ApiScheduleSuccess(ScheduleSuccessCode.SCHEDULE_LIST_OK)
     @ApiCommonErrors({CommonErrorCode.BAD_REQUEST})
+    @ApiScheduleErrors({ScheduleErrorCode.STATION_NOT_FOUND})
     public ScheduleListResponse getSchedules(
             String departureStation,
             String arrivalStation,

@@ -19,6 +19,7 @@ import org.sopt.korail.schedule.dto.response.ScheduleListResponse;
 import org.sopt.korail.schedule.repository.FareRepository;
 import org.sopt.korail.schedule.repository.ScheduleQueryRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
+import org.sopt.korail.schedule.repository.StationRepository;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -32,6 +33,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.sopt.korail.global.config.TimeConfig.KST;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.sopt.korail.support.fixture.FareFixture.fare;
 import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.sopt.korail.support.fixture.ScheduleFixture.schedule;
@@ -51,10 +55,12 @@ class ScheduleServiceTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ScheduleQueryRepository scheduleQueryRepository;
     @Mock private FareRepository fareRepository;
+    @Mock private StationRepository stationRepository;
 
     @BeforeEach
     void setUp() {
-        scheduleService = new ScheduleService(scheduleRepository, scheduleQueryRepository, fareRepository, FIXED_CLOCK);
+        scheduleService = new ScheduleService(
+                scheduleRepository, scheduleQueryRepository, fareRepository, stationRepository, FIXED_CLOCK);
     }
 
     private List<Fare> fares() {
@@ -130,6 +136,23 @@ class ScheduleServiceTest {
             }
         }
 
+        @Nested
+        @DisplayName("실패")
+        class Failure {
+
+            @Test
+            @DisplayName("존재하지 않는 역이면 STATION_NOT_FOUND 예외가 발생한다")
+            void 역없음_STATION_NOT_FOUND() {
+                willThrow(new GeneralException(ScheduleErrorCode.STATION_NOT_FOUND))
+                        .given(stationRepository).validateExists("없는역");
+
+                assertThatThrownBy(() -> scheduleService.getSchedules("없는역", ARRIVAL, DATE, 1, null))
+                        .isInstanceOfSatisfying(GeneralException.class,
+                                e -> assertThat(e.getErrorCode()).isEqualTo(ScheduleErrorCode.STATION_NOT_FOUND));
+
+                verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any(), any());
+            }
+        }
     }
 
     @Nested

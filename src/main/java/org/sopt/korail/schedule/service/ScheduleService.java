@@ -12,6 +12,7 @@ import org.sopt.korail.schedule.dto.response.ScheduleResponse;
 import org.sopt.korail.schedule.repository.FareRepository;
 import org.sopt.korail.schedule.repository.ScheduleQueryRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
+import org.sopt.korail.schedule.repository.StationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final ScheduleQueryRepository scheduleQueryRepository;
     private final FareRepository fareRepository;
+    private final StationRepository stationRepository;
     private final Clock clock;
 
     public ScheduleListResponse getSchedules(
@@ -41,6 +43,10 @@ public class ScheduleService {
             int passengerCount,
             List<TrainType> trainTypes
     ) {
+        // 존재하지 않는 역은 빈 목록과 구분할 수 있도록 예외로 알린다.
+        stationRepository.validateExists(departureStationName);
+        stationRepository.validateExists(arrivalStationName);
+
         List<Schedule> schedules = scheduleQueryRepository.findSchedules(
                 departureStationName, arrivalStationName, departureDate, trainTypes, LocalDateTime.now(clock));
         Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType(departureStationName, arrivalStationName);

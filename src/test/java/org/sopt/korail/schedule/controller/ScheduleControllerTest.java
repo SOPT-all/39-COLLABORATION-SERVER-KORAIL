@@ -120,6 +120,18 @@ class ScheduleControllerTest {
             }
 
             @Test
+            @DisplayName("존재하지 않는 역이면 404를 반환한다")
+            void 역없음_404() throws Exception {
+                given(scheduleService.getSchedules("없는역", ARRIVAL, null, 1, null))
+                        .willThrow(new GeneralException(ScheduleErrorCode.STATION_NOT_FOUND));
+
+                mockMvc.perform(get(SCHEDULES_URL).param("departureStation", "없는역"))
+                        .andExpect(status().isNotFound())
+                        .andExpect(jsonPath("$.isSuccess").value(false))
+                        .andExpect(jsonPath("$.code").value(ScheduleErrorCode.STATION_NOT_FOUND.getCode()));
+            }
+
+            @Test
             @DisplayName("열차 종류가 올바르지 않으면 400을 반환한다")
             void 열차종류오류_400() throws Exception {
                 mockMvc.perform(get(SCHEDULES_URL).param("trainTypes", "UNKNOWN"))
