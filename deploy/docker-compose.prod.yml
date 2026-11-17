@@ -11,6 +11,12 @@ services:
       DB_URL: "jdbc:mysql://mysql:3306/sopt_korail"
       DB_USERNAME: "sopt_korail"
     mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     networks: [edge, db]
     labels:
       caddy: ${API_DOMAIN}
