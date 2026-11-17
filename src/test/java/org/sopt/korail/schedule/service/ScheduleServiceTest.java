@@ -12,6 +12,7 @@ import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.schedule.code.StationErrorCode;
 import org.sopt.korail.schedule.domain.Fare;
 import org.sopt.korail.schedule.domain.Schedule;
 import org.sopt.korail.schedule.dto.response.ScheduleDetailResponse;
@@ -19,6 +20,7 @@ import org.sopt.korail.schedule.dto.response.ScheduleListResponse;
 import org.sopt.korail.schedule.repository.FareRepository;
 import org.sopt.korail.schedule.repository.ScheduleQueryRepository;
 import org.sopt.korail.schedule.repository.ScheduleRepository;
+import org.sopt.korail.schedule.repository.StationRepository;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -32,6 +34,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.sopt.korail.global.config.TimeConfig.KST;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.sopt.korail.support.fixture.FareFixture.fare;
 import static org.sopt.korail.support.fixture.ScheduleFixture.SCHEDULE_ID;
 import static org.sopt.korail.support.fixture.ScheduleFixture.schedule;
@@ -51,10 +56,12 @@ class ScheduleServiceTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ScheduleQueryRepository scheduleQueryRepository;
     @Mock private FareRepository fareRepository;
+    @Mock private StationRepository stationRepository;
 
     @BeforeEach
     void setUp() {
-        scheduleService = new ScheduleService(scheduleRepository, scheduleQueryRepository, fareRepository, FIXED_CLOCK);
+        scheduleService = new ScheduleService(
+                scheduleRepository, scheduleQueryRepository, fareRepository, stationRepository, FIXED_CLOCK);
     }
 
     private List<Fare> fares() {
@@ -80,7 +87,7 @@ class ScheduleServiceTest {
                         .willReturn(List.of(schedule));
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 2, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 2, null);
 
                 assertThat(response.passengerCount()).isEqualTo(2);
                 assertThat(response.schedules()).hasSize(1);
@@ -99,7 +106,7 @@ class ScheduleServiceTest {
                 given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW))).willReturn(List.of());
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 1, null);
 
                 assertThat(response.schedules()).isEmpty();
             }
@@ -111,12 +118,42 @@ class ScheduleServiceTest {
                         .willReturn(List.of(schedule()));
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 1, null);
 
                 assertThat(response.schedules().get(0).fares()).isEmpty();
             }
+
+            @Test
+            @DisplayName("구간을 지정하면 해당 구간의 열차와 운임을 조회한다")
+            void 조회성공_구간지정() {
+                given(scheduleQueryRepository.findSchedules(eq(ARRIVAL), eq(DEPARTURE), eq(DATE), isNull(), eq(NOW)))
+                        .willReturn(List.of(schedule(SCHEDULE_ID, ARRIVAL, DEPARTURE)));
+                given(fareRepository.findSectionFares(ARRIVAL, DEPARTURE, PassengerType.ADULT)).willReturn(fares());
+
+                ScheduleListResponse response = scheduleService.getSchedules(ARRIVAL, DEPARTURE, DATE, 1, null);
+
+                assertThat(response.schedules()).hasSize(1);
+                assertThat(response.schedules().get(0).fares().get(0).unitPrice()).isEqualTo(60000);
+            }
         }
 
+        @Nested
+        @DisplayName("실패")
+        class Failure {
+
+            @Test
+            @DisplayName("존재하지 않는 역이면 STATION_NOT_FOUND 예외가 발생한다")
+            void 역없음_STATION_NOT_FOUND() {
+                willThrow(new GeneralException(StationErrorCode.STATION_NOT_FOUND))
+                        .given(stationRepository).validateExists("없는역");
+
+                assertThatThrownBy(() -> scheduleService.getSchedules("없는역", ARRIVAL, DATE, 1, null))
+                        .isInstanceOfSatisfying(GeneralException.class,
+                                e -> assertThat(e.getErrorCode()).isEqualTo(StationErrorCode.STATION_NOT_FOUND));
+
+                verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any(), any());
+            }
+        }
     }
 
     @Nested
@@ -126,6 +163,18 @@ class ScheduleServiceTest {
         @Nested
         @DisplayName("성공")
         class Success {
+
+            @Test
+            @DisplayName("상행 열차는 해당 열차의 구간 운임을 조회한다")
+            void 조회성공_열차구간운임() {
+                given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID))
+                        .willReturn(schedule(SCHEDULE_ID, ARRIVAL, DEPARTURE));
+                given(fareRepository.findSectionFares(ARRIVAL, DEPARTURE, PassengerType.ADULT)).willReturn(fares());
+
+                ScheduleDetailResponse response = scheduleService.getSchedule(SCHEDULE_ID, 1);
+
+                assertThat(response.fares().get(0).unitPrice()).isEqualTo(60000);
+            }
 
             @Test
             @DisplayName("스케줄 상세와 인원수를 반영한 운임을 반환한다")

@@ -5,9 +5,11 @@ import org.sopt.korail.global.code.CommonErrorCode;
 import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.swagger.ApiCommonErrors;
 import org.sopt.korail.schedule.code.ApiScheduleErrors;
+import org.sopt.korail.schedule.code.ApiStationErrors;
 import org.sopt.korail.schedule.code.ApiScheduleSuccess;
 import org.sopt.korail.schedule.code.ScheduleErrorCode;
 import org.sopt.korail.schedule.code.ScheduleSuccessCode;
+import org.sopt.korail.schedule.code.StationErrorCode;
 import org.sopt.korail.schedule.dto.response.ScheduleDetailResponse;
 import org.sopt.korail.schedule.dto.response.ScheduleListResponse;
 import org.sopt.korail.schedule.service.ScheduleService;
@@ -24,8 +26,15 @@ public class ScheduleController implements ScheduleApi {
     @Override
     @ApiScheduleSuccess(ScheduleSuccessCode.SCHEDULE_LIST_OK)
     @ApiCommonErrors({CommonErrorCode.BAD_REQUEST})
-    public ScheduleListResponse getSchedules(LocalDate departureDate, int passengerCount, List<TrainType> trainTypes) {
-        return scheduleService.getSchedules(departureDate, passengerCount, trainTypes);
+    @ApiStationErrors({StationErrorCode.STATION_NOT_FOUND})
+    public ScheduleListResponse getSchedules(
+            String departureStation,
+            String arrivalStation,
+            LocalDate departureDate,
+            int passengerCount,
+            List<TrainType> trainTypes
+    ) {
+        return scheduleService.getSchedules(departureStation, arrivalStation, departureDate, passengerCount, trainTypes);
     }
 
     @Override

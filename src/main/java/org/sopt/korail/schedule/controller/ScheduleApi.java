@@ -21,10 +21,14 @@ import java.util.List;
 @Tag(name = "열차 API", description = "열차 조회와 관련된 API 입니다")
 @RequestMapping(path = "/api/v1/schedules")
 public interface ScheduleApi {
-    @Operation(summary = "열차 목록 조회", description = "서울-부산 구간의 열차 목록을 열차 종류별 운임과 함께 조회합니다. 출발일과 열차 종류는 선택 조건이며, 이미 출발한 열차는 조회되지 않습니다.")
+    @Operation(summary = "열차 목록 조회", description = "지정한 구간의 열차 목록을 열차 종류별 운임과 함께 조회합니다. 구간은 미입력 시 서울-부산이며, 출발일과 열차 종류는 선택 조건입니다. 이미 출발한 열차는 조회되지 않고, 존재하지 않는 역을 지정하면 404로 응답합니다.")
     @SecurityRequirements
     @GetMapping
     ScheduleListResponse getSchedules(
+            @Parameter(description = "출발역 이름 (기본값 서울)", example = "서울")
+            @RequestParam(defaultValue = "서울") String departureStation,
+            @Parameter(description = "도착역 이름 (기본값 부산)", example = "부산")
+            @RequestParam(defaultValue = "부산") String arrivalStation,
             @Parameter(description = "출발일 (yyyy-MM-dd), 미입력 시 현재 시각 이후 전체", example = "2026-12-01")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate,
             @Parameter(description = "인원수 (1~9, 기본값 1)", example = "1")
