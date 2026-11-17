@@ -22,12 +22,12 @@ INSERT INTO train (train_number, train_type) VALUES
     ('106', 'KTX'),
     ('1001', 'ITX'),
     ('1002', 'ITX'),
-    ('1101', 'ITX_MAEUM'),
-    ('1102', 'ITX_MAEUM'),
+    ('1101', 'ITX_CHEONGCHUN'),
+    ('1102', 'ITX_CHEONGCHUN'),
     ('1201', 'MUGUNGHWA'),
     ('1202', 'MUGUNGHWA');
 
--- 호차: 모두 일반실. KTX 9량, ITX-새마을·ITX-마음·무궁화 6량
+-- 호차: 모두 일반실. KTX 9량, ITX-새마을·ITX-청춘·무궁화 6량
 INSERT INTO coach (train_id, coach_number, seat_class)
 SELECT t.id,
        n.n,
@@ -93,7 +93,7 @@ SELECT s1.id,
        p.passenger_type
 FROM (SELECT '서울' AS station_a, '부산' AS station_b, 'KTX' AS train_type, 'STANDARD' AS seat_class, 59800 AS adult_price
       UNION ALL SELECT '서울', '부산', 'ITX',       'STANDARD', 42600
-      UNION ALL SELECT '서울', '부산', 'ITX_MAEUM', 'STANDARD', 42600
+      UNION ALL SELECT '서울', '부산', 'ITX_CHEONGCHUN', 'STANDARD', 42600
       UNION ALL SELECT '서울', '부산', 'MUGUNGHWA', 'STANDARD', 28600) f
 JOIN (SELECT 0 AS reversed UNION ALL SELECT 1) dir
 JOIN station s1 ON s1.name = CASE WHEN dir.reversed = 0 THEN f.station_a ELSE f.station_b END
