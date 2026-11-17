@@ -8,6 +8,7 @@ import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.schedule.code.StationErrorCode;
 import org.sopt.korail.schedule.code.ScheduleSuccessCode;
 import org.sopt.korail.schedule.dto.response.FareResponse;
 import org.sopt.korail.schedule.dto.response.ScheduleDetailResponse;
@@ -123,12 +124,12 @@ class ScheduleControllerTest {
             @DisplayName("존재하지 않는 역이면 404를 반환한다")
             void 역없음_404() throws Exception {
                 given(scheduleService.getSchedules("없는역", ARRIVAL, null, 1, null))
-                        .willThrow(new GeneralException(ScheduleErrorCode.STATION_NOT_FOUND));
+                        .willThrow(new GeneralException(StationErrorCode.STATION_NOT_FOUND));
 
                 mockMvc.perform(get(SCHEDULES_URL).param("departureStation", "없는역"))
                         .andExpect(status().isNotFound())
                         .andExpect(jsonPath("$.isSuccess").value(false))
-                        .andExpect(jsonPath("$.code").value(ScheduleErrorCode.STATION_NOT_FOUND.getCode()));
+                        .andExpect(jsonPath("$.code").value(StationErrorCode.STATION_NOT_FOUND.getCode()));
             }
 
             @Test

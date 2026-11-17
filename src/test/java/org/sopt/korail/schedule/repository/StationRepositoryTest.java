@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.sopt.korail.global.config.JpaConfig;
 import org.sopt.korail.global.exception.GeneralException;
-import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.schedule.code.StationErrorCode;
 import org.sopt.korail.schedule.domain.Station;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -58,7 +58,7 @@ class StationRepositoryTest {
             void 역없음_STATION_NOT_FOUND() {
                 assertThatThrownBy(() -> stationRepository.validateExists(NOT_EXIST_NAME))
                         .isInstanceOfSatisfying(GeneralException.class,
-                                e -> assertThat(e.getErrorCode()).isEqualTo(ScheduleErrorCode.STATION_NOT_FOUND));
+                                e -> assertThat(e.getErrorCode()).isEqualTo(StationErrorCode.STATION_NOT_FOUND));
             }
         }
     }

@@ -12,6 +12,7 @@ import org.sopt.korail.global.enums.SeatClass;
 import org.sopt.korail.global.enums.TrainType;
 import org.sopt.korail.global.exception.GeneralException;
 import org.sopt.korail.schedule.code.ScheduleErrorCode;
+import org.sopt.korail.schedule.code.StationErrorCode;
 import org.sopt.korail.schedule.domain.Fare;
 import org.sopt.korail.schedule.domain.Schedule;
 import org.sopt.korail.schedule.dto.response.ScheduleDetailResponse;
@@ -143,12 +144,12 @@ class ScheduleServiceTest {
             @Test
             @DisplayName("존재하지 않는 역이면 STATION_NOT_FOUND 예외가 발생한다")
             void 역없음_STATION_NOT_FOUND() {
-                willThrow(new GeneralException(ScheduleErrorCode.STATION_NOT_FOUND))
+                willThrow(new GeneralException(StationErrorCode.STATION_NOT_FOUND))
                         .given(stationRepository).validateExists("없는역");
 
                 assertThatThrownBy(() -> scheduleService.getSchedules("없는역", ARRIVAL, DATE, 1, null))
                         .isInstanceOfSatisfying(GeneralException.class,
-                                e -> assertThat(e.getErrorCode()).isEqualTo(ScheduleErrorCode.STATION_NOT_FOUND));
+                                e -> assertThat(e.getErrorCode()).isEqualTo(StationErrorCode.STATION_NOT_FOUND));
 
                 verify(scheduleQueryRepository, never()).findSchedules(any(), any(), any(), any(), any());
             }
