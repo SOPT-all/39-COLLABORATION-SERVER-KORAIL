@@ -112,6 +112,18 @@ jobs:
           strip_components: 1
           overwrite: true
 
+      - name: "Discord: 배포 시작"
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
+        continue-on-error: true
+        with:
+          webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          status: success
+          noprefix: true
+          title: "[PROD] 배포 시작"
+          description: "지금부터 잠시 5xx 에러가 발생할 수 있습니다."
+          color: 0xf1c40f
+          username: Korail Deploy Bot
+
       - name: Pull & restart
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
@@ -125,9 +137,48 @@ jobs:
             chmod 600 .env
             echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker logout "$ECR_REGISTRY"
+            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180; then
+              echo "::error::API 컨테이너가 healthy 상태가 되지 못했다"
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail 100 api
+              exit 1
+            fi
             docker image prune -af --filter "until=168h"
         env:
           ECR_REGISTRY: ${{ steps.token.outputs.registry }}
           ECR_PASSWORD: ${{ steps.token.outputs.password }}
+
+  # build 실패
+  notify:
+    needs: [build, deploy]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: "Discord: 배포 완료"
+        if: needs.deploy.result == 'success'
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
+        continue-on-error: true
+        with:
+          webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          status: success
+          noprefix: true
+          title: "[PROD] 배포 완료"
+          description: "정상 서비스 중입니다."
+          color: 0x2ecc71
+          username: Korail Deploy Bot
+
+      - name: "Discord: 배포 실패"
+        if: needs.build.result == 'failure' || needs.deploy.result == 'failure'
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
+        continue-on-error: true
+        with:
+          webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          status: failure
+          noprefix: true
+          title: "[PROD] 배포 실패"
+          description: "확인이 필요합니다. (build: ${{ needs.build.result }}, deploy: ${{ needs.deploy.result }})"
+          color: 0xe74c3c
+          url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          username: Korail Deploy Bot
