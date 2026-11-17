@@ -27,8 +27,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ScheduleService {
-    private static final String DEPARTURE_STATION_NAME = "서울";
-    private static final String ARRIVAL_STATION_NAME = "부산";
     private static final PassengerType PASSENGER_TYPE = PassengerType.ADULT;
 
     private final ScheduleRepository scheduleRepository;
@@ -36,10 +34,16 @@ public class ScheduleService {
     private final FareRepository fareRepository;
     private final Clock clock;
 
-    public ScheduleListResponse getSchedules(LocalDate departureDate, int passengerCount, List<TrainType> trainTypes) {
+    public ScheduleListResponse getSchedules(
+            String departureStationName,
+            String arrivalStationName,
+            LocalDate departureDate,
+            int passengerCount,
+            List<TrainType> trainTypes
+    ) {
         List<Schedule> schedules = scheduleQueryRepository.findSchedules(
-                DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, departureDate, trainTypes, LocalDateTime.now(clock));
-        Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType();
+                departureStationName, arrivalStationName, departureDate, trainTypes, LocalDateTime.now(clock));
+        Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType(departureStationName, arrivalStationName);
 
         List<ScheduleResponse> responses = schedules.stream()
                 .map(schedule -> toResponse(schedule, faresByTrainType, passengerCount))
@@ -49,12 +53,15 @@ public class ScheduleService {
 
     public ScheduleDetailResponse getSchedule(Long scheduleId, int passengerCount) {
         Schedule schedule = scheduleRepository.getByIdOrThrow(scheduleId);
-        ScheduleResponse response = toResponse(schedule, findFaresByTrainType(), passengerCount);
+        // 운임은 열차가 실제로 운행하는 구간 기준으로 조회한다.
+        Map<TrainType, List<Fare>> faresByTrainType = findFaresByTrainType(
+                schedule.getDepartureStation().getName(), schedule.getArrivalStation().getName());
+        ScheduleResponse response = toResponse(schedule, faresByTrainType, passengerCount);
         return ScheduleDetailResponse.of(passengerCount, response);
     }
 
-    private Map<TrainType, List<Fare>> findFaresByTrainType() {
-        return fareRepository.findSectionFares(DEPARTURE_STATION_NAME, ARRIVAL_STATION_NAME, PASSENGER_TYPE).stream()
+    private Map<TrainType, List<Fare>> findFaresByTrainType(String departureStationName, String arrivalStationName) {
+        return fareRepository.findSectionFares(departureStationName, arrivalStationName, PASSENGER_TYPE).stream()
                 .collect(Collectors.groupingBy(Fare::getTrainType));
     }
 

@@ -24,8 +24,14 @@ public class ScheduleController implements ScheduleApi {
     @Override
     @ApiScheduleSuccess(ScheduleSuccessCode.SCHEDULE_LIST_OK)
     @ApiCommonErrors({CommonErrorCode.BAD_REQUEST})
-    public ScheduleListResponse getSchedules(LocalDate departureDate, int passengerCount, List<TrainType> trainTypes) {
-        return scheduleService.getSchedules(departureDate, passengerCount, trainTypes);
+    public ScheduleListResponse getSchedules(
+            String departureStation,
+            String arrivalStation,
+            LocalDate departureDate,
+            int passengerCount,
+            List<TrainType> trainTypes
+    ) {
+        return scheduleService.getSchedules(departureStation, arrivalStation, departureDate, passengerCount, trainTypes);
     }
 
     @Override

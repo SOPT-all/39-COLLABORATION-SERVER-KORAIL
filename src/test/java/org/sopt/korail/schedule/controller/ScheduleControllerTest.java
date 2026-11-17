@@ -36,6 +36,8 @@ class ScheduleControllerTest {
 
     private static final String SCHEDULES_URL = "/api/v1/schedules";
     private static final LocalDate DATE = LocalDate.of(2026, 12, 1);
+    private static final String DEPARTURE = "서울";
+    private static final String ARRIVAL = "부산";
 
     @Autowired
     private MockMvc mockMvc;
@@ -62,10 +64,12 @@ class ScheduleControllerTest {
             @Test
             @DisplayName("조건을 지정하면 열차 목록을 반환한다")
             void 조회성공_목록반환() throws Exception {
-                given(scheduleService.getSchedules(DATE, 2, List.of(TrainType.KTX, TrainType.ITX)))
+                given(scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 2, List.of(TrainType.KTX, TrainType.ITX)))
                         .willReturn(ScheduleListResponse.of(2, List.of(scheduleResponse())));
 
                 mockMvc.perform(get(SCHEDULES_URL)
+                                .param("departureStation", DEPARTURE)
+                                .param("arrivalStation", ARRIVAL)
                                 .param("departureDate", "2026-12-01")
                                 .param("passengerCount", "2")
                                 .param("trainTypes", "KTX,ITX"))
@@ -79,16 +83,17 @@ class ScheduleControllerTest {
             }
 
             @Test
-            @DisplayName("파라미터를 생략하면 인원수 1과 전체 조건으로 조회한다")
+            @DisplayName("파라미터를 생략하면 서울-부산, 인원수 1, 전체 조건으로 조회한다")
             void 조회성공_기본값() throws Exception {
-                given(scheduleService.getSchedules(null, 1, null))
+                given(scheduleService.getSchedules(DEPARTURE, ARRIVAL, null, 1, null))
                         .willReturn(ScheduleListResponse.of(1, List.of()));
 
                 mockMvc.perform(get(SCHEDULES_URL))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.result.passengerCount").value(1));
 
-                verify(scheduleService).getSchedules(null, 1, null);
+                // 구간을 생략하면 서울-부산으로 조회한다.
+                verify(scheduleService).getSchedules(DEPARTURE, ARRIVAL, null, 1, null);
             }
         }
 

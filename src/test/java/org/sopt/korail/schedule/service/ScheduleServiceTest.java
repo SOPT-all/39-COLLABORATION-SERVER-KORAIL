@@ -80,7 +80,7 @@ class ScheduleServiceTest {
                         .willReturn(List.of(schedule));
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 2, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 2, null);
 
                 assertThat(response.passengerCount()).isEqualTo(2);
                 assertThat(response.schedules()).hasSize(1);
@@ -99,7 +99,7 @@ class ScheduleServiceTest {
                 given(scheduleQueryRepository.findSchedules(eq(DEPARTURE), eq(ARRIVAL), eq(DATE), isNull(), eq(NOW))).willReturn(List.of());
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(fares());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 1, null);
 
                 assertThat(response.schedules()).isEmpty();
             }
@@ -111,9 +111,22 @@ class ScheduleServiceTest {
                         .willReturn(List.of(schedule()));
                 given(fareRepository.findSectionFares(DEPARTURE, ARRIVAL, PassengerType.ADULT)).willReturn(List.of());
 
-                ScheduleListResponse response = scheduleService.getSchedules(DATE, 1, null);
+                ScheduleListResponse response = scheduleService.getSchedules(DEPARTURE, ARRIVAL, DATE, 1, null);
 
                 assertThat(response.schedules().get(0).fares()).isEmpty();
+            }
+
+            @Test
+            @DisplayName("구간을 지정하면 해당 구간의 열차와 운임을 조회한다")
+            void 조회성공_구간지정() {
+                given(scheduleQueryRepository.findSchedules(eq(ARRIVAL), eq(DEPARTURE), eq(DATE), isNull(), eq(NOW)))
+                        .willReturn(List.of(schedule(SCHEDULE_ID, ARRIVAL, DEPARTURE)));
+                given(fareRepository.findSectionFares(ARRIVAL, DEPARTURE, PassengerType.ADULT)).willReturn(fares());
+
+                ScheduleListResponse response = scheduleService.getSchedules(ARRIVAL, DEPARTURE, DATE, 1, null);
+
+                assertThat(response.schedules()).hasSize(1);
+                assertThat(response.schedules().get(0).fares().get(0).unitPrice()).isEqualTo(60000);
             }
         }
 
@@ -126,6 +139,18 @@ class ScheduleServiceTest {
         @Nested
         @DisplayName("성공")
         class Success {
+
+            @Test
+            @DisplayName("상행 열차는 해당 열차의 구간 운임을 조회한다")
+            void 조회성공_열차구간운임() {
+                given(scheduleRepository.getByIdOrThrow(SCHEDULE_ID))
+                        .willReturn(schedule(SCHEDULE_ID, ARRIVAL, DEPARTURE));
+                given(fareRepository.findSectionFares(ARRIVAL, DEPARTURE, PassengerType.ADULT)).willReturn(fares());
+
+                ScheduleDetailResponse response = scheduleService.getSchedule(SCHEDULE_ID, 1);
+
+                assertThat(response.fares().get(0).unitPrice()).isEqualTo(60000);
+            }
 
             @Test
             @DisplayName("스케줄 상세와 인원수를 반영한 운임을 반환한다")

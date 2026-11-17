@@ -25,9 +25,13 @@ public final class ScheduleFixture {
     }
 
     public static Schedule schedule(Long id) {
+        return schedule(id, "서울", "부산");
+    }
+
+    public static Schedule schedule(Long id, String departureStationName, String arrivalStationName) {
         Schedule schedule = Schedule.builder()
-                .departureStation(station("서울"))
-                .arrivalStation(station("부산"))
+                .departureStation(station(departureStationName))
+                .arrivalStation(station(arrivalStationName))
                 .train(train())
                 .departureAt(DEPARTURE_AT)
                 .arrivalAt(ARRIVAL_AT)
