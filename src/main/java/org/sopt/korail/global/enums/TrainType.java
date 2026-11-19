@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum TrainType {
     KTX("KTX"),
     ITX("ITX-새마을"),
-    ITX_MAEUM("ITX-마음"),
+    ITX_CHEONGCHUN("ITX-청춘"),
     MUGUNGHWA("무궁화");
 
     private final String displayName;
