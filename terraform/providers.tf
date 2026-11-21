@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "speakat-tfstate"
+    bucket       = "chokoring-tfstate"
     key          = "sopt-korail/terraform.tfstate"
     region       = "ap-northeast-2"
     encrypt      = true
