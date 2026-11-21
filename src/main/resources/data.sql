@@ -38,18 +38,18 @@ JOIN (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNI
 WHERE t.train_type = 'KTX' OR n.n <= 6
 ORDER BY t.id, n.n;
 
--- 좌석: 일반실 12행 x A~D (48석)
---       KTX는 앞쪽 절반 순방향, 뒤쪽 절반 역방향 / 그 외 열차는 모두 순방향
+-- 좌석: 일반실 14행 x A~D (56석)
+--       KTX는 1~8행 역방향, 9~14행 순방향 / 그 외 열차는 모두 순방향
 INSERT INTO seat (coach_id, direction, seat_row, seat_col)
 SELECT c.id,
-       CASE WHEN t.train_type = 'KTX' AND r.n > 6 THEN 'BACKWARD' ELSE 'FORWARD' END,
+       CASE WHEN t.train_type = 'KTX' AND r.n <= 8 THEN 'BACKWARD' ELSE 'FORWARD' END,
        r.n,
        col.v
 FROM coach c
 JOIN train t ON t.id = c.train_id
 JOIN (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
       UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-      UNION ALL SELECT 11 UNION ALL SELECT 12) r
+      UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14) r
 JOIN (SELECT 'A' AS v UNION ALL SELECT 'B' UNION ALL SELECT 'C' UNION ALL SELECT 'D') col
 WHERE c.seat_class = 'STANDARD'
 ORDER BY c.id, r.n, col.v;
@@ -100,7 +100,7 @@ JOIN station s1 ON s1.name = CASE WHEN dir.reversed = 0 THEN f.station_a ELSE f.
 JOIN station s2 ON s2.name = CASE WHEN dir.reversed = 0 THEN f.station_b ELSE f.station_a END
 JOIN (SELECT 'ADULT' AS passenger_type UNION ALL SELECT 'CHILD') p;
 
--- 예약: 모든 KTX 일정의 일반실 1~9호차 잔여석을 17, 6, 0, 13, 5, 0, 0, 3, 0석으로 맞춘다. (호차당 48석)
+-- 예약: 모든 KTX 일정의 일반실 1~9호차 잔여석을 17, 6, 0, 13, 5, 0, 0, 3, 0석으로 맞춘다. (호차당 56석)
 -- 결제 완료(PAID) 예약이라 결제 기한과 상관없이 점유로 계산된다. 예약자는 2번 회원이다.
 INSERT INTO reservation (schedule_id, member_id, status, total_price, expires_at, created_at, updated_at)
 SELECT s.id, 2, 'PAID', 0, s.departure_at, NOW(), NOW()
@@ -122,15 +122,15 @@ JOIN (SELECT st.id AS seat_id,
       FROM seat st
       JOIN coach c ON c.id = st.coach_id
       JOIN train t ON t.id = c.train_id AND t.train_type = 'KTX'
-      JOIN (SELECT 1 AS coach_number, 31 AS occupied
-            UNION ALL SELECT 2, 42
-            UNION ALL SELECT 3, 48
-            UNION ALL SELECT 4, 35
-            UNION ALL SELECT 5, 43
-            UNION ALL SELECT 6, 48
-            UNION ALL SELECT 7, 48
-            UNION ALL SELECT 8, 45
-            UNION ALL SELECT 9, 48) occ ON occ.coach_number = c.coach_number) x
+      JOIN (SELECT 1 AS coach_number, 39 AS occupied
+            UNION ALL SELECT 2, 50
+            UNION ALL SELECT 3, 56
+            UNION ALL SELECT 4, 43
+            UNION ALL SELECT 5, 51
+            UNION ALL SELECT 6, 56
+            UNION ALL SELECT 7, 56
+            UNION ALL SELECT 8, 53
+            UNION ALL SELECT 9, 56) occ ON occ.coach_number = c.coach_number) x
   ON x.train_id = s.train_id AND x.seq <= x.occupied
 WHERE r.member_id = 2;
 
