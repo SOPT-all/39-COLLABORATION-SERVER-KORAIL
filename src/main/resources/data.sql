@@ -57,24 +57,25 @@ ORDER BY c.id, r.n, col.v;
 -- 운행 일정: 오늘(KST)부터 7일간 매일 같은 시간표
 -- (서버 기동 시점 기준 날짜로 생성되므로 항상 미래 일정이 존재함)
 -- MySQL 서버 시간대(UTC 등)와 무관하게 KST 날짜를 쓰기 위해 오프셋으로 변환한다. (시간대 테이블 없이 동작)
-INSERT INTO schedule (departure_station_id, arrival_station_id, train_id, departure_at, arrival_at)
+INSERT INTO schedule (departure_station_id, arrival_station_id, train_id, departure_at, arrival_at, remark)
 SELECT ds.id,
        ars.id,
        t.id,
        TIMESTAMP(DATE_ADD(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), INTERVAL d.n DAY), tpl.dep_time),
-       TIMESTAMP(DATE_ADD(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), INTERVAL d.n DAY), tpl.arr_time)
-FROM (SELECT '101' AS train_number, '서울' AS dep_station, '부산' AS arr_station, '06:00:00' AS dep_time, '08:38:00' AS arr_time
-      UNION ALL SELECT '1001', '서울', '부산', '07:30:00', '12:20:00'
-      UNION ALL SELECT '103',  '서울', '부산', '09:00:00', '11:40:00'
-      UNION ALL SELECT '1201', '서울', '부산', '10:00:00', '15:40:00'
-      UNION ALL SELECT '1101', '서울', '부산', '11:30:00', '16:10:00'
-      UNION ALL SELECT '105',  '서울', '부산', '14:00:00', '16:40:00'
-      UNION ALL SELECT '102',  '부산', '서울', '07:00:00', '09:40:00'
-      UNION ALL SELECT '1002', '부산', '서울', '09:00:00', '13:50:00'
-      UNION ALL SELECT '104',  '부산', '서울', '12:00:00', '14:40:00'
-      UNION ALL SELECT '1202', '부산', '서울', '13:00:00', '18:40:00'
-      UNION ALL SELECT '1102', '부산', '서울', '15:00:00', '19:40:00'
-      UNION ALL SELECT '106',  '부산', '서울', '18:00:00', '20:40:00') tpl
+       TIMESTAMP(DATE_ADD(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), INTERVAL d.n DAY), tpl.arr_time),
+       tpl.remark
+FROM (SELECT '101' AS train_number, '서울' AS dep_station, '부산' AS arr_station, '06:00:00' AS dep_time, '08:38:00' AS arr_time, '대전·동대구 정차' AS remark
+      UNION ALL SELECT '1001', '서울', '부산', '07:30:00', '12:20:00', '대전·동대구 정차'
+      UNION ALL SELECT '103',  '서울', '부산', '09:00:00', '11:40:00', NULL
+      UNION ALL SELECT '1201', '서울', '부산', '10:00:00', '15:40:00', NULL
+      UNION ALL SELECT '1101', '서울', '부산', '11:30:00', '16:10:00', '광명·대전·서대구 정차'
+      UNION ALL SELECT '105',  '서울', '부산', '14:00:00', '16:40:00', NULL
+      UNION ALL SELECT '102',  '부산', '서울', '07:00:00', '09:40:00', '동대구·대전 정차'
+      UNION ALL SELECT '1002', '부산', '서울', '09:00:00', '13:50:00', NULL
+      UNION ALL SELECT '104',  '부산', '서울', '12:00:00', '14:40:00', NULL
+      UNION ALL SELECT '1202', '부산', '서울', '13:00:00', '18:40:00', NULL
+      UNION ALL SELECT '1102', '부산', '서울', '15:00:00', '19:40:00', '동대구·대전·천안 정차'
+      UNION ALL SELECT '106',  '부산', '서울', '18:00:00', '20:40:00', NULL) tpl
 JOIN train t ON t.train_number = tpl.train_number
 JOIN station ds ON ds.name = tpl.dep_station
 JOIN station ars ON ars.name = tpl.arr_station
